@@ -1,0 +1,200 @@
+import json
+import logging
+from datetime import datetime
+from anthropic import AsyncAnthropic
+
+from config import get_settings
+from db.models import SessionContext, AgentResult
+from agents.base_agent import BaseAgent
+from agents.prompt_loader import load_prompt
+from tools.scheduling_tools import TOOLS
+from integrations.scheduling_api import (
+    get_available_dates,
+    get_available_times,
+    get_agenda,
+    create_appointment,
+    get_professionals_for_specialty,
+    CONVENIOS,
+)
+
+logger = logging.getLogger(__name__)
+
+
+class SchedulingAgent(BaseAgent):
+    agent_type = "scheduling"
+    model = "claude-sonnet-4-6"
+
+    async def run(self, ctx: SessionContext) -> AgentResult:
+        settings = get_settings()
+        client = AsyncAnthropic(api_key=settings.anthropic_api_key)
+
+        messages = self._build_history(ctx)
+
+        # Injeta data atual no prompt (substitui {today}, {month}, {year})
+        now = datetime.now()
+        system = load_prompt("scheduling").format(
+            today=now.strftime("%Y-%m-%d"),
+            month=now.strftime("%m"),
+            year=now.strftime("%Y"),
+        )
+
+        # Injeta contexto do handoff se vier da Triagem
+        if ctx.handoff_payload and ctx.handoff_payload.patient_name:
+            system += f"\n\nO paciente já se identificou como: {ctx.handoff_payload.patient_name}"
+
+        # Loop agentico: Claude pode chamar múltiplas tools antes de responder ao paciente
+        for _ in range(10):  # max 10 iterações por mensagem
+            response = await client.messages.create(
+                model=self.model,
+                max_tokens=1024,
+                system=system,
+                tools=TOOLS,
+                messages=messages,
+            )
+
+            # Claude quer usar uma tool
+            if response.stop_reason == "tool_use":
+                # Adiciona resposta do Claude (com tool_use blocks) ao histórico
+                messages.append({"role": "assistant", "content": response.content})
+
+                # Executa cada tool solicitada
+                tool_results = []
+                for block in response.content:
+                    if block.type != "tool_use":
+                        continue
+
+                    result = await self._execute_tool(block.name, block.input)
+                    tool_results.append({
+                        "type": "tool_result",
+                        "tool_use_id": block.id,
+                        "content": json.dumps(result, ensure_ascii=False),
+                    })
+
+                    # Salva dados coletados no contexto da sessão
+                    if block.name == "schedule_appointment" and result.get("success"):
+                        ctx.patient_metadata = ctx.patient_metadata or {}
+                        ctx.patient_metadata.update({
+                            "name": block.input.get("patient_name"),
+                            "phone": block.input.get("patient_phone"),
+                        })
+
+                messages.append({"role": "user", "content": tool_results})
+                continue
+
+            # Claude terminou — extrai resposta de texto
+            reply = next(
+                (b.text for b in response.content if hasattr(b, "text")),
+                None,
+            )
+
+            # Verifica se o agendamento foi concluído
+            done = (
+                reply is not None and
+                any(word in reply.lower() for word in [
+                    "agendamento confirmado", "consulta agendada", "confirmado com sucesso",
+                    "sua consulta foi marcada", "agendamento realizado",
+                ])
+            )
+
+            return AgentResult(
+                reply=reply,
+                session_updates=ctx.patient_metadata,
+                done=done,
+            )
+
+        return AgentResult(
+            reply="Desculpe, tive um problema ao processar sua solicitação. Por favor, tente novamente.",
+        )
+
+    async def _execute_tool(self, tool_name: str, tool_input: dict) -> dict:
+        """Executa a tool solicitada pelo Claude e retorna o resultado."""
+        try:
+            if tool_name == "get_agenda":
+                agenda = await get_agenda(tool_input["date_start"], tool_input["date_end"])
+                professional_id = tool_input["professional_id"]
+                # Filtra apenas agendamentos do profissional solicitado
+                prof_agenda = [a for a in agenda if a.get("profissionalSaude", {}).get("id") == professional_id]
+                # Conta convênios (convenio presente e não particular)
+                convenio_count = sum(
+                    1 for a in prof_agenda
+                    if a.get("convenio") and a["convenio"].get("id") != 48339
+                )
+                return {
+                    "total_agendamentos": len(prof_agenda),
+                    "total_convenios": convenio_count,
+                    "agendamentos": prof_agenda,
+                }
+
+            elif tool_name == "get_available_dates":
+                specialty = tool_input["specialty"]
+                month = tool_input["month"]
+                year = tool_input["year"]
+
+                professionals = get_professionals_for_specialty(specialty)
+                if not professionals:
+                    return {"error": f"Especialidade '{specialty}' não disponível no momento."}
+
+                all_dates = []
+                for prof in professionals:
+                    dates = await get_available_dates(prof["id"], month, year)
+                    for d in dates:
+                        all_dates.append({
+                            "data": d,
+                            "profissional_id": prof["id"],
+                            "profissional_nome": prof["nome"],
+                        })
+
+                if not all_dates:
+                    return {"datas": [], "mensagem": f"Não há datas disponíveis em {month}/{year} para {specialty}."}
+
+                return {"datas": all_dates}
+
+            elif tool_name == "get_available_times":
+                specialty = tool_input["specialty"]
+                date = tool_input["date"]
+
+                professionals = get_professionals_for_specialty(specialty)
+                if not professionals:
+                    return {"error": f"Especialidade '{specialty}' não disponível."}
+
+                all_times = []
+                for prof in professionals:
+                    times = await get_available_times(prof["id"], date)
+                    for t in times:
+                        all_times.append({
+                            "horaInicio": t["horaInicio"],
+                            "horaFim": t["horaFim"],
+                            "profissional_id": prof["id"],
+                            "profissional_nome": prof["nome"],
+                        })
+
+                if not all_times:
+                    return {"horarios": [], "mensagem": f"Não há horários disponíveis em {date}."}
+
+                return {"horarios": all_times}
+
+            elif tool_name == "schedule_appointment":
+                specialty = tool_input["specialty"]
+                professionals = get_professionals_for_specialty(specialty)
+                if not professionals:
+                    return {"error": f"Especialidade '{specialty}' não disponível."}
+
+                prof = professionals[0]
+                convenio_key = tool_input.get("convenio", "particular").lower()
+                convenio_id = CONVENIOS.get(convenio_key, 48339) or 48339
+
+                result = await create_appointment(
+                    professional_id=prof["id"],
+                    esp_id=prof["esp_id"],
+                    date=tool_input["date"],
+                    hora_inicio=tool_input["hora_inicio"],
+                    hora_fim=tool_input["hora_fim"],
+                    patient_name=tool_input["patient_name"],
+                    patient_phone=tool_input["patient_phone"],
+                    convenio_id=convenio_id,
+                )
+                return {"success": True, "agendamento": result}
+
+        except Exception as e:
+            logger.error("Erro na tool %s: %s", tool_name, e)
+            return {"error": str(e)}

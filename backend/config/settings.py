@@ -1,0 +1,42 @@
+from pydantic_settings import BaseSettings
+from functools import lru_cache
+
+
+class Settings(BaseSettings):
+    # Anthropic
+    anthropic_api_key: str
+
+    # Groq
+    groq_api_key: str = ""
+
+    # Supabase
+    supabase_url: str
+    supabase_publishable_key: str
+    supabase_service_role_key: str = ""
+    database_url: str
+
+    # Upstash Redis
+    upstash_redis_url: str = ""
+    upstash_redis_token: str = ""
+    upstash_redis_rest_url: str = ""
+    upstash_redis_rest_token: str = ""
+
+    # wts.chat
+    wts_api_url: str = "https://api.wts.chat"
+    wts_api_key: str = ""
+    wts_api_key_confirmation: str = ""
+
+    # App
+    port: int = 8000
+    environment: str = "development"
+    session_ttl_seconds: int = 1800
+    webhook_secret: str = ""
+
+    class Config:
+        env_file = ".env"
+        env_file_encoding = "utf-8"
+
+
+@lru_cache
+def get_settings() -> Settings:
+    return Settings()
