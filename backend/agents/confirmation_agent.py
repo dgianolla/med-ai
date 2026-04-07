@@ -30,16 +30,16 @@ async def handle_confirmation(message: incoming_message.IncomingMessage) -> Dict
 
     # Atualiza o status no Supabase
     from db.client import get_supabase
-    db = get_supabase()
-    
+    db = await get_supabase()
+
     try:
         # Busca a confirmação ativa por session_id
         session_id = message.wts_session_id
-        schedule_res = db.table("schedule_confirmations").select("id").eq("session_id", session_id).order("created_at", desc=True).limit(1).execute()
-        
+        schedule_res = await db.table("schedule_confirmations").select("id").eq("session_id", session_id).order("created_at", desc=True).limit(1).execute()
+
         if schedule_res.data and status in ["confirmed", "canceled"]:
             conf_id = schedule_res.data[0]["id"]
-            db.table("schedule_confirmations").update({"status": status}).eq("id", conf_id).execute()
+            await db.table("schedule_confirmations").update({"status": status}).eq("id", conf_id).execute()
     except Exception as e:
         logger.error(f"Erro ao atualizar status da confirmação para {session_id}: {e}")
 

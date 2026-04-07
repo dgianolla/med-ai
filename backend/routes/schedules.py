@@ -18,7 +18,7 @@ class TriggerRequest(BaseModel):
 
 async def _dispatch_confirmations(schedules: list, delay_seconds: int):
     """Processa a fila de envios com o atraso configurado."""
-    db = get_supabase()
+    db = await get_supabase()
     wts_client = get_confirmation_whatsapp_client()
     
     # Pegar o ID do template no painel de configurações (fixo por enquanto como dummy ou busca ativa)
@@ -33,7 +33,7 @@ async def _dispatch_confirmations(schedules: list, delay_seconds: int):
                 continue
                 
             # Verifica se já existe para não enviar duplicado
-            existing = db.table("schedule_confirmations").select("id, status").eq("appointment_id", sched["id"]).execute()
+            existing = await db.table("schedule_confirmations").select("id, status").eq("appointment_id", sched["id"]).execute()
             if existing.data and existing.data[0]["status"] != "failed":
                 continue # Já foi enviado ou está na fila
                 
@@ -58,7 +58,7 @@ async def _dispatch_confirmations(schedules: list, delay_seconds: int):
                 "professional_name": sched.get("profissionalSaude", {}).get("nome", ""),
                 "status": "pending"
             }
-            res = db.table("schedule_confirmations").insert(data_insert).execute()
+            res = await db.table("schedule_confirmations").insert(data_insert).execute()
             conf_id = res.data[0]["id"]
             
             try:
@@ -74,15 +74,15 @@ async def _dispatch_confirmations(schedules: list, delay_seconds: int):
                 )
                 
                 # Update success
-                db.table("schedule_confirmations").update({
-                    "status": "sent", 
+                await db.table("schedule_confirmations").update({
+                    "status": "sent",
                     "message_id": msg_id,
                     "session_id": phone # atualiza a sessao correta
                 }).eq("id", conf_id).execute()
                 
             except Exception as e:
                 logger.error(f"Erro ao disparar WTS: {e}")
-                db.table("schedule_confirmations").update({"status": "failed"}).eq("id", conf_id).execute()
+                await db.table("schedule_confirmations").update({"status": "failed"}).eq("id", conf_id).execute()
             
             # Espera o delay configurado
             await asyncio.sleep(delay_seconds)
@@ -116,8 +116,8 @@ async def trigger_confirmations(req: TriggerRequest, background_tasks: Backgroun
 async def get_confirmations(date: str):
     """Retorna o status dos envios para acompanhamento no painel."""
     try:
-        db = get_supabase()
-        res = db.table("schedule_confirmations").select("*").eq("appointment_date", date).order("created_at", desc=True).execute()
+        db = await get_supabase()
+        res = await db.table("schedule_confirmations").select("*").eq("appointment_date", date).order("created_at", desc=True).execute()
         return {"confirmations": res.data or []}
     except Exception as e:
         logger.error(f"Erro ao listar confirmacoes: {e}")
@@ -132,10 +132,10 @@ async def preview_schedules(date: str):
         schedules = await get_agenda(date, date)
         
         # Busca status atuais no Supabase
-        db = get_supabase()
+        db = await get_supabase()
         status_map = {}
         try:
-            db_res = db.table("schedule_confirmations").select("appointment_id, status").eq("appointment_date", date).execute()
+            db_res = await db.table("schedule_confirmations").select("appointment_id, status").eq("appointment_date", date).execute()
             status_map = {item["appointment_id"]: item["status"] for item in (db_res.data or [])}
         except Exception as e:
             logger.warning(f"Erro ao buscar status no BD (tabela pode nao existir): {e}")

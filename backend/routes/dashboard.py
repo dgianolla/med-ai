@@ -13,8 +13,8 @@ async def get_sessions():
     Usa a view active_sessions_view do Supabase.
     """
     try:
-        db = get_supabase()
-        result = (
+        db = await get_supabase()
+        result = await (
             db.table("active_sessions_view")
             .select("*")
             .order("last_activity_at", desc=True)
@@ -30,8 +30,8 @@ async def get_sessions():
 async def get_session_messages(session_id: str):
     """Retorna histórico de mensagens de uma sessão."""
     try:
-        db = get_supabase()
-        result = (
+        db = await get_supabase()
+        result = await (
             db.table("messages")
             .select("role, content, agent_id, message_type, created_at")
             .eq("session_id", session_id)

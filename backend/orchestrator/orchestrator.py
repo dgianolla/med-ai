@@ -20,8 +20,8 @@ async def _persist_message(
 ) -> None:
     """Salva mensagem no Supabase de forma não-bloqueante."""
     try:
-        db = get_supabase()
-        db.table("messages").insert({
+        db = await get_supabase()
+        await db.table("messages").insert({
             "session_id": session_id,
             "wts_message_id": wts_message_id or None,
             "agent_id": agent_id,
@@ -37,8 +37,8 @@ async def _persist_message(
 async def _persist_session(ctx: SessionContext) -> None:
     """Upsert da sessão no Supabase."""
     try:
-        db = get_supabase()
-        db.table("sessions").upsert({
+        db = await get_supabase()
+        await db.table("sessions").upsert({
             "id": ctx.session_id,
             "wts_session_id": ctx.wts_session_id,
             "current_agent": ctx.current_agent,
@@ -55,14 +55,14 @@ async def _persist_session(ctx: SessionContext) -> None:
 async def _ensure_patient(ctx: SessionContext, incoming: IncomingMessage) -> str | None:
     """Garante que o paciente existe no Supabase. Retorna patient_id."""
     try:
-        db = get_supabase()
-        result = db.table("patients").select("id").eq("phone", incoming.patient_phone).execute()
+        db = await get_supabase()
+        result = await db.table("patients").select("id").eq("phone", incoming.patient_phone).execute()
 
         if result.data:
             return result.data[0]["id"]
 
         # Cria paciente novo
-        insert = db.table("patients").insert({
+        insert = await db.table("patients").insert({
             "phone": incoming.patient_phone,
             "wts_contact_id": incoming.wts_contact_id or None,
             "name": incoming.patient_name,
@@ -217,8 +217,8 @@ async def _run_agent(agent_id: str, ctx: SessionContext) -> AgentResult:
 async def _finish_session(session_id: str) -> None:
     """Marca sessão como concluída no Supabase."""
     try:
-        db = get_supabase()
-        db.table("sessions").update({
+        db = await get_supabase()
+        await db.table("sessions").update({
             "status": "completed",
             "ended_at": datetime.now(timezone.utc).isoformat(),
         }).eq("id", session_id).execute()
