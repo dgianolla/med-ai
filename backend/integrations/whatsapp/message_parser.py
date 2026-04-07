@@ -41,7 +41,7 @@ def parse_webhook(body: dict) -> IncomingMessage | None:
     if not last_message:
         return None
 
-    raw_type = last_message.get("type", "TEXT")
+    raw_type = last_message.get("type") or "TEXT"
     msg_type = _detect_type(raw_type)
 
     # Ignorar texto vazio
