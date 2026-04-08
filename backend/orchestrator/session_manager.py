@@ -151,10 +151,17 @@ class SessionManager:
         if len(ctx.conversation_history) > self.MAX_HISTORY:
             ctx.conversation_history = ctx.conversation_history[-self.MAX_HISTORY:]
 
-    def set_agent(self, ctx: SessionContext, agent: AgentType, payload: Optional[HandoffPayload] = None) -> None:
-        """Troca o agente atual e armazena o handoff payload."""
+    def set_agent(self, ctx: SessionContext, agent: AgentType, payload: HandoffPayload | None = None) -> None:
+        """Troca o agente atual e armazena o handoff payload.
+        Se payload já existe no contexto, mescla o context antigo com o novo."""
         ctx.current_agent = agent
-        ctx.handoff_payload = payload
+
+        if payload:
+            # Mescla context antigo com o novo (antigo tem prioridade)
+            if payload.context and ctx.handoff_payload and ctx.handoff_payload.context:
+                merged = {**payload.context, **ctx.handoff_payload.context}
+                payload.context = merged
+            ctx.handoff_payload = payload
 
     def update_patient_metadata(self, ctx: SessionContext, updates: dict) -> None:
         """Merge de dados coletados pelo agente no metadata do paciente."""

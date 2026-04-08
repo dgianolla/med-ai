@@ -5,8 +5,12 @@ from config import get_settings
 from db.models import SessionContext, AgentResult, HandoffPayload
 from agents.base_agent import BaseAgent
 from agents.prompt_loader import load_prompt
+from knowledge.tools import TOOLS as KNOWLEDGE_TOOLS, get_clinic_info
+from knowledge.service import get_knowledge
 
 logger = logging.getLogger(__name__)
+
+ALL_TOOLS = KNOWLEDGE_TOOLS
 
 _SCHEDULING_HANDOFF_PHRASES = [
     "vou te encaminhar para agendamento", "agente de agendamento",
@@ -27,7 +31,34 @@ class CommercialAgent(BaseAgent):
         settings = get_settings()
         client = AsyncAnthropic(api_key=settings.anthropic_api_key)
 
+        patient_name = (ctx.patient_metadata or {}).get("name", "Desconhecido")
+        logger.info("[COMMERCIAL] Iniciando | patient=%s (%s)", patient_name, ctx.patient_phone)
+
         system = load_prompt("commercial")
+        system += (
+            "\n\n## NOTA IMPORTANTE: Os preços e combos listados acima podem estar desatualizados. "
+            "SEMPRE use a tool `get_clinic_info` para consultar preços atuais antes de responder "
+            "perguntas sobre valores. Ex: get_clinic_info(query='qual o preço do combo mulher')."
+        )
+
+        # Injeta informações dinâmicas da clínica
+        knowledge = get_knowledge()
+        payment_info = knowledge.get("clinic_info", "payment")
+        if payment_info:
+            system += (
+                f"\n\n## FORMAS DE PAGAMENTO ATUALIZADAS\n"
+                f"Métodos: {', '.join(payment_info.get('methods', []))}\n"
+                f"Chave PIX: {payment_info.get('pix_key', 'N/A')}\n"
+                f"Parcelamento: Consultas até {payment_info.get('installments', {}).get('consultas', '2x')} | "
+                f"Exames/Combos até {payment_info.get('installments', {}).get('exames_combos', '10x')}"
+            )
+
+        address_info = knowledge.get("clinic_info", "address")
+        if address_info:
+            system += (
+                f"\n\n## ENDEREÇO\n"
+                f"{address_info.get('street')} — {address_info.get('landmark')}"
+            )
 
         # Contexto do handoff (ex: veio de Exames com exames específicos)
         if ctx.handoff_payload:
@@ -39,19 +70,65 @@ class CommercialAgent(BaseAgent):
             if payload.exam_ids:
                 system += f"\nExames de interesse: {', '.join(payload.exam_ids)}"
 
+        # Injeta contexto acumulado de handoffs anteriores
+        if ctx.handoff_payload and ctx.handoff_payload.context:
+            context = ctx.handoff_payload.context
+            collected_info = []
+            if context.get("convenio"):
+                collected_info.append(f"Convênio: {context['convenio']}")
+            if context.get("specialty"):
+                collected_info.append(f"Especialidade de interesse: {context['specialty']}")
+            if context.get("scheduled_date"):
+                collected_info.append(f"Já possui agendamento em {context['scheduled_date']}")
+            if context.get("previous_agent"):
+                collected_info.append(f"Veio do agente: {context['previous_agent']}")
+            if collected_info:
+                system += "\n\n## CONTEXTO DA CONVERSA ANTERIOR\n" + "\n".join(collected_info)
+
         messages = self._build_history(ctx)
 
-        response = await client.messages.create(
-            model=self.model,
-            max_tokens=1024,
-            system=system,
-            messages=messages,
-        )
+        # Loop agentico para suportar tools
+        for _ in range(5):
+            response = await client.messages.create(
+                model=self.model,
+                max_tokens=1024,
+                system=system,
+                tools=ALL_TOOLS,
+                messages=messages,
+            )
 
-        reply = next(
-            (b.text for b in response.content if hasattr(b, "text")),
-            None,
-        )
+            # Claude quer usar uma tool
+            if response.stop_reason == "tool_use":
+                messages.append({"role": "assistant", "content": response.content})
+
+                import json
+                tool_results = []
+                for block in response.content:
+                    if block.type != "tool_use":
+                        continue
+
+                    if block.name == "get_clinic_info":
+                        result = await get_clinic_info(block.input["query"])
+                    else:
+                        result = {"error": f"Tool desconhecida: {block.name}"}
+
+                    tool_results.append({
+                        "type": "tool_result",
+                        "tool_use_id": block.id,
+                        "content": json.dumps(result, ensure_ascii=False),
+                    })
+
+                messages.append({"role": "user", "content": tool_results})
+                continue
+
+            # Claude terminou — extrai resposta de texto
+            reply = next(
+                (b.text for b in response.content if hasattr(b, "text")),
+                None,
+            )
+            break
+        else:
+            reply = None
 
         handoff_target = None
         handoff_payload = None
@@ -68,8 +145,15 @@ class CommercialAgent(BaseAgent):
                     patient_name=patient_name,
                     reason="Paciente quer agendar consulta após atendimento comercial",
                 )
+                logger.info("[COMMERCIAL] Handoff → scheduling | patient=%s", patient_name)
             elif any(p in reply_lower for p in _DONE_PHRASES):
                 done = True
+                logger.info("[COMMERCIAL] Sessão encerrada | patient=%s", patient_name)
+
+        logger.info(
+            "[COMMERCIAL] Resposta | patient=%s | handoff=%s | done=%s",
+            patient_name, handoff_target or "Nenhum", done,
+        )
 
         return AgentResult(
             reply=reply,

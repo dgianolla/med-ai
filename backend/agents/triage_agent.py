@@ -19,6 +19,9 @@ class TriageAgent(BaseAgent):
         settings = get_settings()
         client = AsyncAnthropic(api_key=settings.anthropic_api_key)
 
+        patient_name = (ctx.patient_metadata or {}).get("name", "Desconhecido")
+        logger.info("[TRIAGE] Iniciando | patient=%s (%s)", patient_name, ctx.patient_phone)
+
         # Última mensagem do paciente
         last_user_msg = next(
             (m["content"] for m in reversed(ctx.conversation_history) if m["role"] == "user"),
@@ -49,7 +52,10 @@ class TriageAgent(BaseAgent):
             target = data.get("target", "scheduling")
             reason = data.get("reason", "")
 
-            logger.info("Triagem | phone=%s | target=%s | reason=%s", ctx.patient_phone, target, reason)
+            logger.info(
+                "[TRIAGE] Decisão | patient=%s | target=%s | reason=%s",
+                patient_name, target, reason,
+            )
 
             return AgentResult(
                 reply=None,  # Triagem nunca responde ao paciente

@@ -1,0 +1,72 @@
+{
+  "professionals": [
+    {
+      "id": 29116,
+      "name": "Dr. Ricardo Dilda",
+      "specialties": [
+        {"name": "Clínico Geral", "esp_id": 10},
+        {"name": "Cardiologia", "esp_id": 9}
+      ]
+    },
+    {
+      "id": 29117,
+      "name": "Dra. Yalanny Thiery",
+      "specialties": [
+        {"name": "Psiquiatria", "esp_id": 49}
+      ]
+    },
+    {
+      "id": 30319,
+      "name": "Dr. Arthur Wagner",
+      "specialties": [
+        {"name": "Endocrinologia e Metabologia", "esp_id": 19}
+      ]
+    },
+    {
+      "id": 30320,
+      "name": "Dra. Silmara Capeleto",
+      "specialties": [
+        {"name": "Ginecologia e Obstetrícia", "esp_id": 58}
+      ]
+    },
+    {
+      "id": 31644,
+      "name": "Dra. Ellen Santini",
+      "specialties": [
+        {"name": "Dermatologia", "esp_id": 12}
+      ]
+    },
+    {
+      "id": 32874,
+      "name": "Dra. Paolla Cappelari",
+      "specialties": [
+        {"name": "Ginecologia sem Obstetrícia", "esp_id": 58}
+      ]
+    },
+    {
+      "id": 33732,
+      "name": "Dr. Samuel Lessa",
+      "specialties": [
+        {"name": "Ortopedia e Traumatologia", "esp_id": 43}
+      ]
+    }
+  ],
+
+  "convenios": [
+    {"id": 48339, "name": "Particular"},
+    {"id": 59000, "name": "AMHEMED PLUS"},
+    {"id": 59001, "name": "FUNSERV"},
+    {"id": 59002, "name": "INCOR"},
+    {"id": 58999, "name": "DENTAL MED"},
+    {"id": 59756, "name": "MEDPREV"}
+  ],
+
+  "exam_types": [
+    "Laboratoriais (sangue, urina, fezes)",
+    "Eletrocardiograma (ECG)",
+    "Raio-X",
+    "Ultrassom",
+    "Ressonância magnética",
+    "Tomografia"
+  ]
+}

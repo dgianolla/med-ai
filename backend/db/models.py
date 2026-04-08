@@ -27,6 +27,8 @@ class HandoffPayload(BaseModel):
     specialty_needed: Optional[str] = None
     exam_order_code: Optional[str] = None
     exam_content: Optional[str] = None  # conteúdo extraído de imagem/PDF
+    context: Optional[dict] = None  # dados arbitrários coletados pelo agente anterior
+                                    # ex: {"convenio": "particular", "specialty": "cardiologia", "patient_phone": "..."}
 
 # ============================================================
 # Mensagem normalizada (entrada de qualquer tipo de mídia)
@@ -49,12 +51,13 @@ class IncomingMessage(BaseModel):
 # ============================================================
 class SessionContext(BaseModel):
     session_id: str               # phone_timestamp ex: "5511988579353_1711234567"
+    patient_id: Optional[str] = None  # UUID do paciente no Supabase
     patient_phone: str
     wts_session_id: str
     current_agent: AgentType = "triage"
     conversation_history: list[dict] = []   # últimas 15 mensagens
     handoff_payload: Optional[HandoffPayload] = None
-    patient_metadata: Optional[dict] = None # nome, cpf, etc coletados
+    patient_metadata: Optional[dict] = None # nome, cpf, convenio, etc coletados
     exam_content: Optional[str] = None      # conteúdo de exame enviado por mídia
     created_at: datetime
     last_activity_at: datetime

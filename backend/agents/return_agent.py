@@ -8,6 +8,7 @@ from db.models import SessionContext, AgentResult
 from agents.base_agent import BaseAgent
 from agents.prompt_loader import load_prompt
 from tools.return_tools import TOOLS
+from knowledge.tools import TOOLS as KNOWLEDGE_TOOLS, get_clinic_info
 from integrations.scheduling_api import (
     get_available_dates,
     get_available_times,
@@ -18,6 +19,8 @@ from integrations.scheduling_api import (
 
 logger = logging.getLogger(__name__)
 
+ALL_TOOLS = TOOLS + KNOWLEDGE_TOOLS
+
 
 class ReturnAgent(BaseAgent):
     agent_type = "return"
@@ -26,6 +29,9 @@ class ReturnAgent(BaseAgent):
     async def run(self, ctx: SessionContext) -> AgentResult:
         settings = get_settings()
         client = AsyncAnthropic(api_key=settings.anthropic_api_key)
+
+        patient_name = (ctx.patient_metadata or {}).get("name", "Desconhecido")
+        logger.info("[RETURN] Iniciando | patient=%s (%s)", patient_name, ctx.patient_phone)
 
         now = datetime.now()
         system = load_prompt("return").format(
@@ -46,7 +52,7 @@ class ReturnAgent(BaseAgent):
                 model=self.model,
                 max_tokens=1024,
                 system=system,
-                tools=TOOLS,
+                tools=ALL_TOOLS,
                 messages=messages,
             )
 
@@ -69,6 +75,9 @@ class ReturnAgent(BaseAgent):
                         ctx.patient_metadata.update({
                             "name": block.input.get("patient_name"),
                             "phone": block.input.get("patient_phone"),
+                            "specialty": block.input.get("specialty"),
+                            "return_date": block.input.get("date"),
+                            "return_time": block.input.get("hora_inicio"),
                         })
 
                 messages.append({"role": "user", "content": tool_results})
@@ -84,6 +93,11 @@ class ReturnAgent(BaseAgent):
                 "agendamento confirmado", "confirmado com sucesso",
             ])
 
+            logger.info(
+                "[RETURN] Resposta gerada | patient=%s | reply=%s | done=%s",
+                patient_name, (reply or "")[:80], done,
+            )
+
             return AgentResult(
                 reply=reply,
                 session_updates=ctx.patient_metadata,
@@ -96,6 +110,9 @@ class ReturnAgent(BaseAgent):
 
     async def _execute_tool(self, tool_name: str, tool_input: dict) -> dict:
         try:
+            if tool_name == "get_clinic_info":
+                return await get_clinic_info(tool_input["query"])
+
             if tool_name == "get_available_dates":
                 specialty = tool_input["specialty"]
                 month = tool_input["month"]

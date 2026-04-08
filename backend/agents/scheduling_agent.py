@@ -8,6 +8,8 @@ from db.models import SessionContext, AgentResult
 from agents.base_agent import BaseAgent
 from agents.prompt_loader import load_prompt
 from tools.scheduling_tools import TOOLS
+from knowledge.tools import TOOLS as KNOWLEDGE_TOOLS, get_clinic_info
+from knowledge.service import get_knowledge
 from integrations.scheduling_api import (
     get_available_dates,
     get_available_times,
@@ -19,6 +21,9 @@ from integrations.scheduling_api import (
 
 logger = logging.getLogger(__name__)
 
+# Combina scheduling tools + knowledge tools
+ALL_TOOLS = TOOLS + KNOWLEDGE_TOOLS
+
 
 class SchedulingAgent(BaseAgent):
     agent_type = "scheduling"
@@ -27,6 +32,9 @@ class SchedulingAgent(BaseAgent):
     async def run(self, ctx: SessionContext) -> AgentResult:
         settings = get_settings()
         client = AsyncAnthropic(api_key=settings.anthropic_api_key)
+
+        patient_name = (ctx.patient_metadata or {}).get("name", "Desconhecido")
+        logger.info("[SCHEDULING] Iniciando | patient=%s (%s)", patient_name, ctx.patient_phone)
 
         messages = self._build_history(ctx)
 
@@ -38,9 +46,50 @@ class SchedulingAgent(BaseAgent):
             year=now.strftime("%Y"),
         )
 
+        # Injeta informações dinâmicas da clínica
+        knowledge = get_knowledge()
+        payment_info = knowledge.get("clinic_info", "payment")
+        if payment_info:
+            system += (
+                f"\n\n## FORMAS DE PAGAMENTO (dados dinâmicos)\n"
+                f"Métodos: {', '.join(payment_info.get('methods', []))}\n"
+                f"Chave PIX: {payment_info.get('pix_key', 'N/A')}\n"
+                f"Parcelamento: Consultas até {payment_info.get('installments', {}).get('consultas', '2x')} | "
+                f"Exames/Combos até {payment_info.get('installments', {}).get('exames_combos', '10x')}"
+            )
+
+        arrival_info = knowledge.get("clinic_info", "arrival_policy")
+        if arrival_info:
+            system += (
+                f"\n\n## POLÍTICA DE CHEGADA\n"
+                f"Chegar {arrival_info.get('arrive_minutes_before', 15)} minutos antes | "
+                f"Tolerância: {arrival_info.get('tolerance_minutes', 15)} minutos"
+            )
+
         # Injeta contexto do handoff se vier da Triagem
         if ctx.handoff_payload and ctx.handoff_payload.patient_name:
             system += f"\n\nO paciente já se identificou como: {ctx.handoff_payload.patient_name}"
+
+        # Injeta contexto acumulado de handoffs anteriores
+        if ctx.handoff_payload and ctx.handoff_payload.context:
+            context = ctx.handoff_payload.context
+            # Dados coletados por agentes anteriores
+            collected_info = []
+            if context.get("convenio"):
+                collected_info.append(f"Convênio: {context['convenio']}")
+            if context.get("specialty"):
+                collected_info.append(f"Especialidade já mencionada: {context['specialty']}")
+            if context.get("scheduled_date"):
+                collected_info.append(f"Já possui agendamento em {context['scheduled_date']} às {context.get('scheduled_time', '')}")
+            if collected_info:
+                system += "\n\n## INFORMAÇÕES COLETADAS EM INTERAÇÕES ANTERIORES\n" + "\n".join(collected_info)
+
+        # Nota sobre consulta de preços
+        system += (
+            "\n\n## NOTA: Se o paciente perguntar sobre PREÇOS, VALORES ou CUSTOS de consultas, "
+            "exames ou combos, NÃO invente valores. Use a tool `get_clinic_info` para consultar "
+            "os preços atualizados. Ex: get_clinic_info(query='qual o valor da consulta de cardiologia')."
+        )
 
         # Loop agentico: Claude pode chamar múltiplas tools antes de responder ao paciente
         for _ in range(10):  # max 10 iterações por mensagem
@@ -48,7 +97,7 @@ class SchedulingAgent(BaseAgent):
                 model=self.model,
                 max_tokens=1024,
                 system=system,
-                tools=TOOLS,
+                tools=ALL_TOOLS,
                 messages=messages,
             )
 
@@ -76,6 +125,10 @@ class SchedulingAgent(BaseAgent):
                         ctx.patient_metadata.update({
                             "name": block.input.get("patient_name"),
                             "phone": block.input.get("patient_phone"),
+                            "convenio": block.input.get("convenio", "particular"),
+                            "specialty": block.input.get("specialty"),
+                            "scheduled_date": block.input.get("date"),
+                            "scheduled_time": block.input.get("hora_inicio"),
                         })
 
                 messages.append({"role": "user", "content": tool_results})
@@ -96,6 +149,11 @@ class SchedulingAgent(BaseAgent):
                 ])
             )
 
+            logger.info(
+                "[SCHEDULING] Resposta gerada | patient=%s | reply=%s | done=%s",
+                patient_name, (reply or "")[:80], done,
+            )
+
             return AgentResult(
                 reply=reply,
                 session_updates=ctx.patient_metadata,
@@ -109,6 +167,9 @@ class SchedulingAgent(BaseAgent):
     async def _execute_tool(self, tool_name: str, tool_input: dict) -> dict:
         """Executa a tool solicitada pelo Claude e retorna o resultado."""
         try:
+            if tool_name == "get_clinic_info":
+                return await get_clinic_info(tool_input["query"])
+
             if tool_name == "get_agenda":
                 agenda = await get_agenda(tool_input["date_start"], tool_input["date_end"])
                 professional_id = tool_input["professional_id"]

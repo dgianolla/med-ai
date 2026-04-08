@@ -5,6 +5,7 @@ from config import get_settings
 from db.models import SessionContext, AgentResult, HandoffPayload
 from agents.base_agent import BaseAgent
 from agents.prompt_loader import load_prompt
+from knowledge.service import get_knowledge
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +28,18 @@ class ExamsAgent(BaseAgent):
         settings = get_settings()
         client = AsyncAnthropic(api_key=settings.anthropic_api_key)
 
+        patient_name = (ctx.patient_metadata or {}).get("name", "Desconhecido")
+        logger.info("[EXAMS] Iniciando | patient=%s (%s) | exam_content=%s", patient_name, ctx.patient_phone, bool(ctx.exam_content))
+
         system = load_prompt("exams")
+
+        # Injeta informações da clínica dinamicamente
+        knowledge = get_knowledge()
+        exam_info = knowledge.get("clinic_info", "exam_policy")
+        system += f"\n\n## POLÍTICA DE EXAMES DA CLÍNICA\n"
+        system += f"- Jejum: {exam_info.get('lab_fasting_hours', '8 a 12 horas')}\n"
+        system += f"- Prazo de resultado: {exam_info.get('result_turnaround', '5 dias úteis')}\n"
+        system += f"- Pedido médico: {'obrigatório' if exam_info.get('medical_order_required') else 'não obrigatório'}"
 
         # Contexto do handoff
         if ctx.handoff_payload and ctx.handoff_payload.patient_name:
@@ -69,6 +81,7 @@ class ExamsAgent(BaseAgent):
                     patient_name=patient_name,
                     reason="Encaminhado pelo agente de exames",
                 )
+                logger.info("[EXAMS] Handoff → commercial | patient=%s", patient_name)
             elif any(p in reply_lower for p in _SCHEDULING_HANDOFF_PHRASES):
                 handoff_target = "scheduling"
                 handoff_payload = HandoffPayload(
@@ -76,6 +89,9 @@ class ExamsAgent(BaseAgent):
                     patient_name=patient_name,
                     reason="Paciente quer agendar consulta após análise de exame",
                 )
+                logger.info("[EXAMS] Handoff → scheduling | patient=%s", patient_name)
+
+        logger.info("[EXAMS] Resposta | patient=%s | handoff=%s", patient_name, handoff_target or "Nenhum")
 
         return AgentResult(
             reply=reply,

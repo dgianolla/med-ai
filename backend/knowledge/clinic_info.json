@@ -1,0 +1,49 @@
+{
+  "clinic_name": "Clínica Atend Já Sorocaba",
+  "assistant_name": "LIA",
+
+  "address": {
+    "street": "Rua Voluntários de Sorocaba, 413 – Centro – Sorocaba/SP",
+    "landmark": "Próximo ao Fórum Velho, em frente à praça do barquinho"
+  },
+
+  "hours": {
+    "weekdays": "Seg–Sex 8h–17h",
+    "saturday": "Sáb 8h–12h",
+    "sunday_holidays": "Fechado"
+  },
+
+  "arrival_policy": {
+    "arrive_minutes_before": 15,
+    "tolerance_minutes": 15
+  },
+
+  "documents_required": [
+    "RG ou CNH (original)",
+    "Carteirinha do convênio (se aplicável)",
+    "Guia médica (apenas Dental Med)"
+  ],
+
+  "exam_policy": {
+    "lab_fasting_hours": "8 a 12 horas para exames laboratoriais",
+    "result_turnaround": "Média de 5 dias úteis",
+    "medical_order_required": true
+  },
+
+  "return_policy": {
+    "free_return_days": 30,
+    "same_doctor_preferred": true,
+    "priority_for_clinic_exams": true
+  },
+
+  "payment": {
+    "methods": ["Dinheiro", "PIX", "Débito", "Crédito"],
+    "pix_key": "56.091.716/0001-04",
+    "installments": {
+      "consultas": "Até 2x",
+      "exames_combos": "Até 10x",
+      "installment_fee": "Sem juros"
+    },
+    "cash_discount": "Consultar equipe de atendimento"
+  }
+}
