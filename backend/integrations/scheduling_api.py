@@ -112,6 +112,22 @@ async def create_appointment(
         return resp.json()
 
 
+async def cancel_appointment(appointment_id: int, reason: str = "Solicitado pelo paciente via WhatsApp") -> dict:
+    """Cancela um agendamento existente. Retorna confirmação do cancelamento."""
+    payload = {
+        "situacao": "CANCELADO",
+        "observacao": reason,
+    }
+    async with httpx.AsyncClient(verify=False, timeout=10) as client:
+        resp = await client.put(
+            f"{BASE_URL}/agendamentos/{appointment_id}/cancelar",
+            headers={**_headers(), "Content-Type": "application/json"},
+            json=payload,
+        )
+        resp.raise_for_status()
+        return resp.json()
+
+
 def get_professionals_for_specialty(specialty: str) -> list[dict]:
     """Retorna profissionais disponíveis para uma especialidade."""
     key = specialty.lower().replace(" ", "_").replace("ç", "c").replace("ã", "a")

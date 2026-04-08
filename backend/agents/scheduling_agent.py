@@ -81,6 +81,8 @@ class SchedulingAgent(BaseAgent):
                 collected_info.append(f"Especialidade já mencionada: {context['specialty']}")
             if context.get("scheduled_date"):
                 collected_info.append(f"Já possui agendamento em {context['scheduled_date']} às {context.get('scheduled_time', '')}")
+            if context.get("appointment_id"):
+                collected_info.append(f"ID do agendamento: {context['appointment_id']}")
             if collected_info:
                 system += "\n\n## INFORMAÇÕES COLETADAS EM INTERAÇÕES ANTERIORES\n" + "\n".join(collected_info)
 
@@ -130,6 +132,10 @@ class SchedulingAgent(BaseAgent):
                             "scheduled_date": block.input.get("date"),
                             "scheduled_time": block.input.get("hora_inicio"),
                         })
+                        # Salva appointment_id se retornado pela API
+                        appointment_data = result.get("agendamento", {})
+                        if appointment_data.get("id"):
+                            ctx.patient_metadata["appointment_id"] = appointment_data["id"]
 
                 messages.append({"role": "user", "content": tool_results})
                 continue

@@ -282,6 +282,9 @@ async def _run_agent(agent_id: str, ctx: SessionContext) -> AgentResult:
     elif agent_id == "return":
         from agents.return_agent import ReturnAgent
         result = await ReturnAgent().run(ctx)
+    elif agent_id == "cancellation":
+        from agents.cancellation_agent import CancellationAgent
+        result = await CancellationAgent().run(ctx)
     else:
         logger.error("Agente desconhecido: %s", agent_id)
         return AgentResult(reply="Desculpe, ocorreu um erro interno. Tente novamente.", done=True)

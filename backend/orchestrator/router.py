@@ -37,6 +37,15 @@ _RETURN_PATTERNS = [
     r"\b(30\s*dias|gratuito|re\s*consulta|reconsulta)",
 ]
 
+# Padrões que indicam que a pergunta é sobre CANCELAMENTO
+_CANCEL_PATTERNS = [
+    r"\b(cancel|desmarc|desist|anul)",
+    r"\b(não\s*posso\s*(mais|ir|comparecer)|nao\s*posso\s*(mais|ir|comparecer))",
+    r"\b(quero\s*(cancelar|desmarcar)|preciso\s*(cancelar|desmarcar)|gostaria\s*(de\s*)?(cancelar|desmarcar))",
+    r"\b(remarcar|reagendar|mudar\s*data|trocar\s*data|trocar\s*horário|trocar\s*horario)",
+    r"\b(vou\s*(ter|precisar)\s*desmarcar|vou\s*(ter|precisar)\s*cancelar)",
+]
+
 # Padrões que indicam que a pergunta é sobre AGENDAMENTO
 _SCHEDULING_PATTERNS = [
     r"\b(marcar|agendar|agenda|horário?\s*dispon[ií]vel|tem\s*vaga)",
@@ -61,6 +70,7 @@ def classify_intent(text: str) -> str | None:
         "commercial": 0,
         "exams": 0,
         "return": 0,
+        "cancellation": 0,
         "scheduling": 0,
     }
 
@@ -75,6 +85,10 @@ def classify_intent(text: str) -> str | None:
     for pattern in _RETURN_PATTERNS:
         if re.search(pattern, text_lower):
             scores["return"] += 1
+
+    for pattern in _CANCEL_PATTERNS:
+        if re.search(pattern, text_lower):
+            scores["cancellation"] += 1
 
     for pattern in _SCHEDULING_PATTERNS:
         if re.search(pattern, text_lower):

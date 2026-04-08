@@ -7,11 +7,12 @@ logger = logging.getLogger(__name__)
 
 # Mapeamento agente → nome da etiqueta no wts.chat
 AGENT_TAG_NAMES = {
-    "triage":     "Triagem",
-    "scheduling": "Agendamento",
-    "exams":      "Exames",
-    "commercial": "Comercial",
-    "return":     "Retorno",
+    "triage":       "Triagem",
+    "scheduling":   "Agendamento",
+    "exams":        "Exames",
+    "commercial":   "Comercial",
+    "return":       "Retorno",
+    "cancellation": "Cancelamento",
 }
 
 

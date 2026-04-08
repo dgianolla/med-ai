@@ -6,7 +6,7 @@ from datetime import datetime
 # ============================================================
 # Tipos de agentes
 # ============================================================
-AgentType = Literal["triage", "scheduling", "exams", "commercial", "return"]
+AgentType = Literal["triage", "scheduling", "exams", "commercial", "return", "cancellation"]
 
 # ============================================================
 # Payload de handoff entre agentes
@@ -29,6 +29,7 @@ class HandoffPayload(BaseModel):
     exam_content: Optional[str] = None  # conteúdo extraído de imagem/PDF
     context: Optional[dict] = None  # dados arbitrários coletados pelo agente anterior
                                     # ex: {"convenio": "particular", "specialty": "cardiologia", "patient_phone": "..."}
+                                    # pode incluir "appointment_id" para cancelamentos
 
 # ============================================================
 # Mensagem normalizada (entrada de qualquer tipo de mídia)
