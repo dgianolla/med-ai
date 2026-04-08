@@ -3,6 +3,7 @@
     {
       "name": "Clínico Geral",
       "slug": "clinico_geral",
+      "esp_id": 168,
       "aliases": ["clínico geral", "clinico", "clínico", "geral", "medico geral", "médico geral"],
       "description": "Atendimento médico inicial para avaliação de saúde, check-ups, encaminhamentos e acompanhamento de condições gerais.",
       "when_to_seek": [
@@ -18,6 +19,7 @@
     {
       "name": "Cardiologia",
       "slug": "cardiologia",
+      "esp_id": 6,
       "aliases": ["cardiologia", "cardio", "cardiologista", "cardiológico", "coração", "cardiovascular"],
       "description": "Especializada em diagnóstico e tratamento de doenças do coração e do sistema cardiovascular.",
       "when_to_seek": [
@@ -33,25 +35,9 @@
       "preparation": "Evitar café e estimulantes 12h antes. Se for fazer ECG, não use cremes no peito no dia. Traga exames anteriores."
     },
     {
-      "name": "Psiquiatria",
-      "slug": "psiquiatria",
-      "aliases": ["psiquiatria", "psiquiatra", "mental", "ansiedade", "depressão", "emoção"],
-      "description": "Diagnóstico e tratamento de transtornos mentais e emocionais, incluindo prescrição de medicamentos.",
-      "when_to_seek": [
-        "Ansiedade persistente ou crises de pânico",
-        "Depressão ou tristeza prolongada",
-        "Insônia ou distúrbios do sono",
-        "Transtorno bipolar",
-        "TDAH (déficit de atenção e hiperatividade)",
-        "Dependência química ou emocional",
-        "Transtornos alimentares"
-      ],
-      "exams_commonly_ordered": ["TSH", "T4 livre", "Hemograma", "Vitamina B12", "Vitamina D", "Glicemia"],
-      "preparation": "Traga lista de medicamentos em uso (incluindo fitoterápicos) e exames recentes. Não suspenda medicamentos sem orientação."
-    },
-    {
       "name": "Endocrinologia e Metabologia",
       "slug": "endocrinologia",
+      "esp_id": 19,
       "aliases": ["endocrinologia", "endócrino", "endocrino", "endocrinologista", "hormônio", "hormonal", "metabolismo", "diabetes", "tireoide", "emagrecimento", "obesidade"],
       "description": "Tratamento de distúrbios hormonais e metabólicos: diabetes, tireoide, obesidade, osteoporose e protocolos de emagrecimento.",
       "when_to_seek": [
@@ -69,6 +55,7 @@
     {
       "name": "Ginecologia e Obstetrícia",
       "slug": "ginecologia",
+      "esp_id": 24,
       "aliases": ["ginecologia", "gineco", "ginecologista", "ginecológico", "obstetrícia", "pré-natal", "gravidez", "menstruação"],
       "description": "Saúde da mulher: exames preventivos, acompanhamento de gravidez, distúrbios menstruais e saúde reprodutiva.",
       "when_to_seek": [
@@ -86,6 +73,7 @@
     {
       "name": "Ginecologia sem Obstetrícia",
       "slug": "ginecologia_sem_obstetricia",
+      "esp_id": 58,
       "aliases": ["ginecologia sem obstetrícia", "gineco sem", "só gineco", "ginecologista geral"],
       "description": "Saúde ginecológica geral sem acompanhamento de gravidez: prevenção, exames, distúrbios menstruais e saúde reprodutiva.",
       "when_to_seek": [
@@ -102,6 +90,7 @@
     {
       "name": "Dermatologia",
       "slug": "dermatologia",
+      "esp_id": 18,
       "aliases": ["dermatologia", "dermato", "dermatologista", "pele", "cabelo", "unha", "espinha", "acne", "mancha"],
       "description": "Diagnóstico e tratamento de doenças de pele, cabelos e unhas. Inclui procedimentos estéticos.",
       "when_to_seek": [
@@ -116,24 +105,27 @@
       ],
       "exams_commonly_ordered": ["Exames laboratoriais específicos (conforme necessidade)"],
       "preparation": "Não use maquiagem no dia da consulta. Traga fotos de lesões se elas mudam de aparência."
-    },
+    }
+  ],
+
+  "specialties_standby": [
     {
-      "name": "Ortopedia e Traumatologia",
-      "slug": "ortopedia",
-      "aliases": ["ortopedia", "ortopedista", "ortopédico", "osso", "articulação", "fratura", "joelho", "coluna", "ombro", "trauma", "traumatologia"],
-      "description": "Diagnóstico e tratamento de lesões e doenças do sistema musculoesquelético: ossos, articulações, músculos e ligamentos.",
+      "name": "Otorrinolaringologia",
+      "slug": "otorrinolaringologia",
+      "esp_id": 44,
+      "aliases": ["otorrino", "otorrinolaringologista", "garganta", "nariz", "ouvido"],
+      "description": "Diagnóstico e tratamento de doenças do ouvido, nariz, garganta e estruturas relacionadas da cabeça e pescoço.",
+      "note": "⚠️ STANDBY — Especialidade disponível na API mas sem médico mapeado ainda. Não oferecer agendamento.",
       "when_to_seek": [
-        "Dor nas costas, coluna ou pescoço",
-        "Dor no joelho, ombro, quadril ou tornozelo",
-        "Fraturas ou entorses",
-        "Tendinites e bursites",
-        "Hérnia de disco",
-        "Lesões esportivas",
-        "Artrose ou artrite",
-        "Dor ciática"
-      ],
-      "exams_commonly_ordered": ["Raio-X", "Ressonância magnética", "Tomografia", "Ultrassom musculoesquelético"],
-      "preparation": "Trazer exames de imagem anteriores e laudos. Usar roupa confortável que permita avaliação de movimento."
+        "Sinusite ou rinite crônica",
+        "Perda de audição ou zumbido",
+        "Dor de garganta recorrente",
+        "Amigdalite",
+        "Ronco ou apneia do sono",
+        "Tontura ou labirintite",
+        "Pólipos nasais",
+        "Rouquidão persistente"
+      ]
     }
   ]
 }

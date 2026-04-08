@@ -45,6 +45,18 @@ class ExamsAgent(BaseAgent):
         if ctx.handoff_payload and ctx.handoff_payload.patient_name:
             system += f"\n\nO paciente já se identificou como: {ctx.handoff_payload.patient_name}"
 
+        # Verifica se veio de handoff automático do comercial (checkup)
+        if ctx.handoff_payload and ctx.handoff_payload.context:
+            context = ctx.handoff_payload.context
+            if context.get("auto_handoff_from_commercial") and context.get("checkup_packages_sent"):
+                system += (
+                    "\n\n## CONTEXTO ESPECIAL: PACIENTE RECEBEU INFO DE CHECKUP\n"
+                    "O paciente acabou de receber informações sobre pacotes de checkup. "
+                    "Pergunte se ele tem interesse em algum combo específico e se deseja prosseguir "
+                    "com o agendamento. Seja proativo: ofereça ajudar a escolher o combo mais adequado. "
+                    "Use emojis verdes (💚, 🌿) para manter a identidade da marca."
+                )
+
         # Conteúdo de exame já processado (PDF extraído ou transcrição)
         if ctx.exam_content and not ctx.exam_content.startswith("http"):
             system += f"\n\n## CONTEÚDO DO EXAME ENVIADO PELO PACIENTE\n{ctx.exam_content}"

@@ -138,7 +138,28 @@ class CommercialAgent(BaseAgent):
         if reply:
             reply_lower = reply.lower()
 
-            if any(p in reply_lower for p in _SCHEDULING_HANDOFF_PHRASES):
+            # Detecta se acabou de enviar info de checkup e deve handoff automático para exames
+            is_checkup_response = any(kw in reply_lower for kw in [
+                "checkup", "combo mulher", "combo homem", "combo idoso",
+                "combo pediatria", "combo cardiologista", "r$ 279", "r$ 370",
+                "r$ 489", "r$ 599", "r$ 464",
+            ])
+
+            if is_checkup_response:
+                # Handoff invisível para o agente de exames
+                handoff_target = "exams"
+                handoff_payload = HandoffPayload(
+                    type="to_exams",
+                    patient_name=patient_name,
+                    reason="Paciente recebeu info de checkup e será atendido pelo agente de exames",
+                    context={
+                        "auto_handoff_from_commercial": True,
+                        "checkup_packages_sent": True,
+                        **(ctx.handoff_payload.context if ctx.handoff_payload and ctx.handoff_payload.context else {}),
+                    },
+                )
+                logger.info("[COMMERCIAL] Auto-handoff → exams (checkup) | patient=%s", patient_name)
+            elif any(p in reply_lower for p in _SCHEDULING_HANDOFF_PHRASES):
                 handoff_target = "scheduling"
                 handoff_payload = HandoffPayload(
                     type="to_scheduling",

@@ -8,18 +8,20 @@ BASE_URL = "https://back.apphealth.com.br:9090/api-vizi"
 AUTH_TOKEN = "laVZIRHpJt1K9ygtRcDQfH7L1QmjHPN9qZ7l87Qp9PKLR"
 
 # Mapeamento especialidade → profissional(is)
+# IDs de especialidade vindos da API: /especialidades
 PROFESSIONALS = {
-    "clinica_geral":        [{"id": 29116, "nome": "Dr. Ricardo Dilda",      "esp_id": 10}],
-    "cardiologia":          [{"id": 29116, "nome": "Dr. Ricardo Dilda",      "esp_id": 9}],
-    "psiquiatria":          [{"id": 29117, "nome": "Dra. Yalanny Thiery",    "esp_id": 49}],
+    "clinica_geral":        [{"id": 29116, "nome": "Dr. Ricardo Dilda",      "esp_id": 168}],
+    "cardiologia":          [{"id": 29116, "nome": "Dr. Ricardo Dilda",      "esp_id": 6}],
     "endocrinologia":       [{"id": 30319, "nome": "Dr. Arthur Wagner",      "esp_id": 19}],
     "ginecologia":          [
-        {"id": 30320, "nome": "Dra. Silmara Capeleto", "esp_id": 58},
+        {"id": 30320, "nome": "Dra. Silmara Capeleto", "esp_id": 24},
         {"id": 32874, "nome": "Dra. Paolla Cappelari", "esp_id": 58},
     ],
-    "dermatologia":         [{"id": 31644, "nome": "Dra. Ellen Santini",     "esp_id": 12}],
-    "ortopedia":            [{"id": 33732, "nome": "Dr. Samuel Lessa",       "esp_id": 43}],
+    "dermatologia":         [{"id": 31644, "nome": "Dra. Ellen Santini",     "esp_id": 18}],
+    # STANDBY: Otorrinolaringologia (esp_id: 44) — sem médico mapeado ainda
 }
+
+# Convênios
 
 # Convênios
 CONVENIOS = {
@@ -135,21 +137,28 @@ def get_professionals_for_specialty(specialty: str) -> list[dict]:
     aliases = {
         "cardiologista": "cardiologia",
         "cardiologico": "cardiologia",
+        "cardiologo": "cardiologia",
         "ginecologo": "ginecologia",
         "ginecologista": "ginecologia",
-        "ortopedista": "ortopedia",
-        "traumatologia": "ortopedia",
+        "gineco": "ginecologia",
         "dermato": "dermatologia",
         "dermatologo": "dermatologia",
         "dermatologa": "dermatologia",
+        "pele": "dermatologia",
         "endocrino": "endocrinologia",
         "endocrinologista": "endocrinologia",
         "metabolismo": "endocrinologia",
-        "psiquiatra": "psiquiatria",
+        "hormonio": "endocrinologia",
+        "hormonal": "endocrinologia",
         "clinico": "clinica_geral",
         "clínico": "clinica_geral",
         "geral": "clinica_geral",
         "clinica": "clinica_geral",
+        "otorrino": "otorrinolaringologia",
+        "otorrinolaringologista": "otorrinolaringologia",
+        "garganta": "otorrinolaringologia",
+        "nariz": "otorrinolaringologia",
+        "ouvido": "otorrinolaringologia",
     }
     key = aliases.get(key, key)
     return PROFESSIONALS.get(key, [])

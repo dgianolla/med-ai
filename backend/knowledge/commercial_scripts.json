@@ -2,11 +2,11 @@
   "commercial_scripts": {
     "apresentar_combo": {
       "description": "Como apresentar um combo ao paciente",
-      "script": "Encontrei a opção ideal para você! 🎯\n\n*{nome_combo}* — R$ {preco}\n\nInclui:\n{lista_inclusos}\n\n*Retorno em 30 dias incluso!* ✨\n\nO que acha? Posso agendar para você?"
+      "script": "Encontrei a opção ideal para você! ✨\n\n*{nome_combo}* — R$ {preco}\n\nInclui:\n{lista_inclusos}\n\n*Retorno em 30 dias incluso!* 💚\n\nO que acha? Posso agendar para você?"
     },
     "apresentar_protocolo_emagrecimento": {
       "description": "Como apresentar protocolo de emagrecimento",
-      "script": "Para o *{nome_protocolo}*, funciona assim:\n\n⏱️ Duração: {duracao}\n💰 Investimento: R$ {preco}\n\nInclui:\n{lista_inclusos}\n\n⚠️ É necessária uma *consulta médica prévia* com o endocrinologista para avaliação individualizada.\n\nQuer que eu agende essa consulta primeiro?"
+      "script": "Para o *{nome_protocolo}*, funciona assim:\n\n⏱️ Duração: {duracao}\n💚 Investimento: R$ {preco}\n\nInclui:\n{lista_inclusos}\n\n⚠️ É necessária uma *consulta médica prévia* com o endocrinologista para avaliação individualizada.\n\nQuer que eu agende essa consulta primeiro?"
     },
     "paciente_quer_só_consulta": {
       "description": "Quando paciente quer apenas consulta avulsa, não combo",
@@ -14,7 +14,7 @@
     },
     "pacinte_pede_desconto": {
       "description": "Como responder quando paciente pede desconto",
-      "script": "Entendo perfeitamente! Para pagamento *à vista* (dinheiro ou PIX), temos condições especiais. Posso verificar com a equipe de atendimento e te retorno com o melhor valor. 😊"
+      "script": "Entendo perfeitamente! Para pagamento *à vista* (dinheiro ou PIX), temos condições especiais. Posso verificar com a equipe de atendimento e te retorno com o melhor valor. 💚"
     },
     "fechamento_venda": {
       "description": "Scripts para fechar a venda do combo/protocolo",
@@ -30,7 +30,7 @@
     },
     "encerramento_pos_venda": {
       "description": "Encerramento após venda ou quando paciente agradeceu",
-      "script": "Ótimo! Qualquer dúvida, estamos à disposição. Tenha um *ótimo dia!* 🌟"
+      "script": "Ótimo! Qualquer dúvida, estamos à disposição. Tenha um *ótimo dia!* 💚"
     }
   },
 
@@ -46,14 +46,14 @@
     "vou_pensar": {
       "objection": "Vou pensar / Vou ver com meu marido/esposa",
       "responses": [
-        "Claro, é uma decisão importante! Mas lembre-se: os *combos incluem retorno em 30 dias*, então você já tem o acompanhamento completo. Se precisar de mais informações, estou aqui! 😊",
+        "Claro, é uma decisão importante! Mas lembre-se: os *combos incluem retorno em 30 dias*, então você já tem o acompanhamento completo. Se precisar de mais informações, estou aqui! 💚",
         "Sem pressa! Enquanto isso, posso deixar reservada uma data para você? Assim não perde a disponibilidade."
       ]
     },
     "prefiro_sus": {
       "objection": "Prefiro fazer pelo SUS / Posto de saúde",
       "responses": [
-        "Entendo perfeitamente! A diferença aqui é a *rapidez* — no SUS a fila pode ser longa. Aqui você tem consulta em poucos dias, com retorno incluso e acompanhamento personalizado. Vale a pena conferir! 😊"
+        "Entendo perfeitamente! A diferença aqui é a *rapidez* — no SUS a fila pode ser longa. Aqui você tem consulta em poucos dias, com retorno incluso e acompanhamento personalizado. Vale a pena conferir! 💚"
       ]
     },
     "quero_só_exame": {
@@ -67,8 +67,8 @@
   "gatilhos_persuasivos": [
     "⏰ *Vagas limitadas* essa semana — posso garantir a sua?",
     "📅 Essa é a *próxima data disponível* — quer que eu reserve?",
-    "🎯 O combo que você escolheu tem *retorno incluso* — isso é uma vantagem de R$ 350+!",
-    "💡 Muitos pacientes que fizeram esse combo disseram que *valeu muito a pena* pelo custo-benefício.",
-    "✨ Nosso *parcelamento é sem juros* — você não paga nada a mais por isso."
+    "💚 O combo que você escolheu tem *retorno incluso* — isso é uma vantagem de R$ 350+!",
+    "✨ Muitos pacientes que fizeram esse combo disseram que *valeu muito a pena* pelo custo-benefício.",
+    "🌿 Nosso *parcelamento é sem juros* — você não paga nada a mais por isso."
   ]
 }

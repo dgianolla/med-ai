@@ -3,52 +3,112 @@
     {
       "specialty": "Clínico Geral",
       "professional": "Dr. Ricardo Dilda",
+      "esp_id": 168,
       "price_particular": 250.00,
       "price_note": "Valor de referência — consultar equipe de atendimento para valores atualizados"
     },
     {
       "specialty": "Cardiologia",
       "professional": "Dr. Ricardo Dilda",
+      "esp_id": 6,
       "price_particular": 350.00,
-      "price_note": "Valor de referência — consultar equipe de atendimento para valores atualizados"
-    },
-    {
-      "specialty": "Psiquiatria",
-      "professional": "Dra. Yalanny Thiery",
-      "price_particular": 400.00,
       "price_note": "Valor de referência — consultar equipe de atendimento para valores atualizados"
     },
     {
       "specialty": "Endocrinologia e Metabologia",
       "professional": "Dr. Arthur Wagner",
+      "esp_id": 19,
       "price_particular": 350.00,
       "price_note": "Valor de referência — consultar equipe de atendimento para valores atualizados"
     },
     {
       "specialty": "Ginecologia e Obstetrícia",
       "professional": "Dra. Silmara Capeleto",
+      "esp_id": 24,
       "price_particular": 350.00,
       "price_note": "Valor de referência — consultar equipe de atendimento para valores atualizados"
     },
     {
       "specialty": "Ginecologia sem Obstetrícia",
       "professional": "Dra. Paolla Cappelari",
+      "esp_id": 58,
       "price_particular": 350.00,
       "price_note": "Valor de referência — consultar equipe de atendimento para valores atualizados"
     },
     {
       "specialty": "Dermatologia",
       "professional": "Dra. Ellen Santini",
-      "price_particular": 350.00,
-      "price_note": "Valor de referência — consultar equipe de atendimento para valores atualizados"
-    },
-    {
-      "specialty": "Ortopedia e Traumatologia",
-      "professional": "Dr. Samuel Lessa",
+      "esp_id": 18,
       "price_particular": 350.00,
       "price_note": "Valor de referência — consultar equipe de atendimento para valores atualizados"
     }
   ],
+
+  "combos": [
+    {
+      "id": "combo_mulher_completo",
+      "name": "Combo Mulher Completo",
+      "price": 279.00,
+      "includes": ["Consulta ginecológica", "Papanicolau", "Ultrassom transvaginal", "Retorno em 30 dias"]
+    },
+    {
+      "id": "combo_mulher_exames",
+      "name": "Combo Mulher com Exames",
+      "price": 599.00,
+      "includes": ["Consulta ginecológica", "Papanicolau", "Ultrassom transvaginal", "11 exames laboratoriais", "Retorno em 30 dias"],
+      "lab_exams": ["Hemograma", "Glicemia", "Colesterol total e frações", "Triglicérides", "TSH", "T4 livre", "FSH", "LH", "Prolactina", "Progesterona", "Vitamina D"]
+    },
+    {
+      "id": "combo_homem",
+      "name": "Combo Homem",
+      "price": 370.00,
+      "includes": ["Consulta médica", "14 exames laboratoriais", "Retorno em 30 dias"],
+      "lab_exams": ["Hemograma", "Glicemia", "Colesterol", "Triglicérides", "Ácido úrico", "Ureia", "Creatinina", "TGO", "TGP", "Testosterona total e livre", "PSA total e livre"]
+    },
+    {
+      "id": "combo_idoso",
+      "name": "Combo Idoso",
+      "price": 489.00,
+      "includes": ["Consulta médica", "15 exames laboratoriais", "Retorno em 30 dias"],
+      "lab_exams": ["Hemograma", "Glicemia", "Hemoglobina glicada", "Colesterol", "Triglicérides", "Cálcio", "Fósforo", "Vitaminas B12/D/C", "TGO", "TGP", "Ureia", "Creatinina", "Urina tipo 1"]
+    },
+    {
+      "id": "combo_pediatria",
+      "name": "Combo Pediatria",
+      "price": 464.00,
+      "includes": ["Consulta pediátrica", "10 exames laboratoriais", "Retorno em 30 dias"],
+      "lab_exams": ["Hemograma", "Glicemia", "Colesterol", "Triglicérides", "Ferro", "Ferritina", "Vitaminas B12/D", "Urina tipo 1", "Parasitológico de fezes"]
+    },
+    {
+      "id": "combo_cardiologia",
+      "name": "Combo Cardiologista",
+      "price": 599.00,
+      "includes": ["Consulta cardiológica", "ECG", "MAPA (monitoramento pressão 24h)", "10 exames laboratoriais", "Retorno em 30 dias"],
+      "lab_exams": ["Hemograma", "Glicemia", "Colesterol", "Triglicérides", "Ácido úrico", "Ureia", "Creatinina", "TGO", "TGP", "PSA"]
+    }
+  ],
+
+  "weight_loss_protocols": [
+    {
+      "id": "ozempic",
+      "name": "Protocolo Ozempic",
+      "duration_days": 90,
+      "price": 3300.00,
+      "pricing_note": "Só fechamos protocolo completo de 90 dias — não vendemos mensal",
+      "includes": ["Aplicação semanal", "Reposição de vitaminas/hormonal quando necessário", "Consulta com endocrinologista a cada 15 dias"]
+    },
+    {
+      "id": "mounjaro",
+      "name": "Protocolo Mounjaro",
+      "price_monthly": 1800.00,
+      "price_90_days": 5000.00,
+      "includes": ["Aplicação semanal", "Reposição de vitaminas/hormonal quando necessário", "Consulta com endocrinologista a cada 15 dias"]
+    }
+  ],
+
+  "weight_loss_requirements": ["Consulta médica prévia obrigatória", "Avaliação individualizada"],
+
+  "convenios_accepted": ["Funserv", "Amhemed", "Incor", "Ossel", "Dental Med"],
 
   "exames_avulsos": [
     {"name": "Hemograma completo", "price": 45.00, "category": "laboratorial"},

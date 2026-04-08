@@ -4,15 +4,8 @@
       "id": 29116,
       "name": "Dr. Ricardo Dilda",
       "specialties": [
-        {"name": "Clínico Geral", "esp_id": 10},
-        {"name": "Cardiologia", "esp_id": 9}
-      ]
-    },
-    {
-      "id": 29117,
-      "name": "Dra. Yalanny Thiery",
-      "specialties": [
-        {"name": "Psiquiatria", "esp_id": 49}
+        {"name": "Clínico Geral", "esp_id": 168},
+        {"name": "Cardiologia", "esp_id": 6}
       ]
     },
     {
@@ -26,14 +19,14 @@
       "id": 30320,
       "name": "Dra. Silmara Capeleto",
       "specialties": [
-        {"name": "Ginecologia e Obstetrícia", "esp_id": 58}
+        {"name": "Ginecologia e Obstetrícia", "esp_id": 24}
       ]
     },
     {
       "id": 31644,
       "name": "Dra. Ellen Santini",
       "specialties": [
-        {"name": "Dermatologia", "esp_id": 12}
+        {"name": "Dermatologia", "esp_id": 18}
       ]
     },
     {
@@ -42,13 +35,14 @@
       "specialties": [
         {"name": "Ginecologia sem Obstetrícia", "esp_id": 58}
       ]
-    },
+    }
+  ],
+
+  "professionals_standby": [
     {
-      "id": 33732,
-      "name": "Dr. Samuel Lessa",
-      "specialties": [
-        {"name": "Ortopedia e Traumatologia", "esp_id": 43}
-      ]
+      "note": "Especialidade disponível na API mas sem médico mapeado ainda",
+      "specialty": "Otorrinolaringologia",
+      "esp_id": 44
     }
   ],
 

@@ -232,20 +232,36 @@ async def dispatch(incoming: IncomingMessage) -> None:
                 result.handoff_payload.reason if result.handoff_payload else "N/A",
             )
 
-            # Aplica etiqueta do novo agente e salva nota com intenção do paciente
-            from integrations.whatsapp.wts_client import AGENT_TAG_NAMES
-            tag_name = AGENT_TAG_NAMES.get(result.handoff_target)
-            if tag_name:
-                await whatsapp.apply_tag(ctx.wts_session_id, tag_name)
+            # Verifica se é um handoff invisível (auto-handoff de commercial para exams)
+            is_invisible_handoff = (
+                result.handoff_payload
+                and result.handoff_payload.context
+                and result.handoff_payload.context.get("auto_handoff_from_commercial")
+            )
 
-            if result.handoff_payload and result.handoff_payload.reason:
-                patient_name = (ctx.patient_metadata or {}).get("name", "Paciente")
-                note = f"[LIA] {patient_name} → {tag_name or result.handoff_target}\nIntenção: {result.handoff_payload.reason}"
-                await whatsapp.add_note(ctx.wts_session_id, note)
+            if not is_invisible_handoff:
+                # Aplica etiqueta do novo agente e salva nota com intenção do paciente
+                from integrations.whatsapp.wts_client import AGENT_TAG_NAMES
+                tag_name = AGENT_TAG_NAMES.get(result.handoff_target)
+                if tag_name:
+                    await whatsapp.apply_tag(ctx.wts_session_id, tag_name)
+
+                if result.handoff_payload and result.handoff_payload.reason:
+                    patient_name = (ctx.patient_metadata or {}).get("name", "Paciente")
+                    note = f"[LIA] {patient_name} → {tag_name or result.handoff_target}\nIntenção: {result.handoff_payload.reason}"
+                    await whatsapp.add_note(ctx.wts_session_id, note)
+            else:
+                logger.info(
+                    "🔒 HANDOFF INVISÍVEL | %s → %s | patient=%s (sem nota/tag no WhatsApp)",
+                    previous_agent, result.handoff_target, patient_name,
+                )
 
             # Se o próximo agente não precisa de mais input do paciente (ex: Triagem → Agendamento),
             # continua o loop imediatamente
             if agent_id == "triage":
+                continue
+            # Handoff invisível de commercial para exams também continua imediatamente
+            if is_invisible_handoff:
                 continue
             break
 
