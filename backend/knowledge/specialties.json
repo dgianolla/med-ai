@@ -1,0 +1,139 @@
+{
+  "specialties": [
+    {
+      "name": "Clínico Geral",
+      "slug": "clinico_geral",
+      "aliases": ["clínico geral", "clinico", "clínico", "geral", "medico geral", "médico geral"],
+      "description": "Atendimento médico inicial para avaliação de saúde, check-ups, encaminhamentos e acompanhamento de condições gerais.",
+      "when_to_seek": [
+        "Check-up anual de rotina",
+        "Sintomas gerais (febre, dor, mal-estar)",
+        "Encaminhamento para especialista",
+        "Controle de doenças crônicas (diabetes, hipertensão)",
+        "Atestados e exames periódicos"
+      ],
+      "exams_commonly_ordered": ["Hemograma", "Glicemia", "Colesterol", "Triglicérides", "Urina tipo 1", "TSH", "Creatinina"],
+      "preparation": "Não exige preparo especial. Traga exames anteriores e lista de medicamentos em uso."
+    },
+    {
+      "name": "Cardiologia",
+      "slug": "cardiologia",
+      "aliases": ["cardiologia", "cardio", "cardiologista", "cardiológico", "coração", "cardiovascular"],
+      "description": "Especializada em diagnóstico e tratamento de doenças do coração e do sistema cardiovascular.",
+      "when_to_seek": [
+        "Dor ou desconforto no peito",
+        "Palpitações ou arritmia",
+        "Falta de ar ao esforço",
+        "Controle de pressão alta (hipertensão)",
+        "Avaliação pré-cirúrgica cardíaca",
+        "Histórico familiar de doenças cardíacas",
+        "Colesterol alto"
+      ],
+      "exams_commonly_ordered": ["ECG", "MAPA", "Hemograma", "Colesterol e frações", "Triglicérides", "Glicemia", "TSH"],
+      "preparation": "Evitar café e estimulantes 12h antes. Se for fazer ECG, não use cremes no peito no dia. Traga exames anteriores."
+    },
+    {
+      "name": "Psiquiatria",
+      "slug": "psiquiatria",
+      "aliases": ["psiquiatria", "psiquiatra", "mental", "ansiedade", "depressão", "emoção"],
+      "description": "Diagnóstico e tratamento de transtornos mentais e emocionais, incluindo prescrição de medicamentos.",
+      "when_to_seek": [
+        "Ansiedade persistente ou crises de pânico",
+        "Depressão ou tristeza prolongada",
+        "Insônia ou distúrbios do sono",
+        "Transtorno bipolar",
+        "TDAH (déficit de atenção e hiperatividade)",
+        "Dependência química ou emocional",
+        "Transtornos alimentares"
+      ],
+      "exams_commonly_ordered": ["TSH", "T4 livre", "Hemograma", "Vitamina B12", "Vitamina D", "Glicemia"],
+      "preparation": "Traga lista de medicamentos em uso (incluindo fitoterápicos) e exames recentes. Não suspenda medicamentos sem orientação."
+    },
+    {
+      "name": "Endocrinologia e Metabologia",
+      "slug": "endocrinologia",
+      "aliases": ["endocrinologia", "endócrino", "endocrino", "endocrinologista", "hormônio", "hormonal", "metabolismo", "diabetes", "tireoide", "emagrecimento", "obesidade"],
+      "description": "Tratamento de distúrbios hormonais e metabólicos: diabetes, tireoide, obesidade, osteoporose e protocolos de emagrecimento.",
+      "when_to_seek": [
+        "Diabetes ou pré-diabetes",
+        "Distúrbios da tireoide (hipo/hipertireoidismo)",
+        "Obesidade ou dificuldade para emagrecer",
+        "Protocolos de emagrecimento (Ozempic, Mounjaro)",
+        "Osteoporose",
+        "Distúrbios menstruais hormonais",
+        "Excesso de pelos ou queda de cabelo hormonal"
+      ],
+      "exams_commonly_ordered": ["TSH", "T4 livre", "Glicemia", "Hemoglobina glicada", "Insulina", "Testosterona", "Prolactina", "Vitamina D", "Colesterol"],
+      "preparation": "Jejum de 8-12h para exames laboratoriais. Evitar atividade física intensa 24h antes. Trazer exames anteriores."
+    },
+    {
+      "name": "Ginecologia e Obstetrícia",
+      "slug": "ginecologia",
+      "aliases": ["ginecologia", "gineco", "ginecologista", "ginecológico", "obstetrícia", "pré-natal", "gravidez", "menstruação"],
+      "description": "Saúde da mulher: exames preventivos, acompanhamento de gravidez, distúrbios menstruais e saúde reprodutiva.",
+      "when_to_seek": [
+        "Exame preventivo anual (Papanicolau)",
+        "Planejamento de gravidez ou pré-natal",
+        "Distúrbios menstruais",
+        "Cólica intensa (dismenorreia)",
+        "Síndrome dos ovários policísticos",
+        "Menopausa e climatério",
+        "Infecções ginecológicas recorrentes"
+      ],
+      "exams_commonly_ordered": ["Papanicolau", "Ultrassom transvaginal", "Hemograma", "FSH", "LH", "Prolactina", "Progesterona", "Vitamina D"],
+      "preparation": "Para Papanicolau: evitar relações sexuais, duchas vaginais e uso de cremes vaginais 48h antes. Não estar menstruada."
+    },
+    {
+      "name": "Ginecologia sem Obstetrícia",
+      "slug": "ginecologia_sem_obstetricia",
+      "aliases": ["ginecologia sem obstetrícia", "gineco sem", "só gineco", "ginecologista geral"],
+      "description": "Saúde ginecológica geral sem acompanhamento de gravidez: prevenção, exames, distúrbios menstruais e saúde reprodutiva.",
+      "when_to_seek": [
+        "Check-up ginecológico de rotina",
+        "Exames preventivos",
+        "Distúrbios menstruais",
+        "Infecções ginecológicas",
+        "Menopausa e climatério",
+        "Planejamento familiar (sem pré-natal)"
+      ],
+      "exams_commonly_ordered": ["Papanicolau", "Ultrassom", "Hemograma", "FSH", "LH", "Vitamina D"],
+      "preparation": "Mesma orientação da ginecologia com obstetrícia para exames."
+    },
+    {
+      "name": "Dermatologia",
+      "slug": "dermatologia",
+      "aliases": ["dermatologia", "dermato", "dermatologista", "pele", "cabelo", "unha", "espinha", "acne", "mancha"],
+      "description": "Diagnóstico e tratamento de doenças de pele, cabelos e unhas. Inclui procedimentos estéticos.",
+      "when_to_seek": [
+        "Acne ou espinhas persistentes",
+        "Manchas na pele",
+        "Queda de cabelo",
+        "Alergias de pele",
+        "Psoríase ou dermatite",
+        "Verrugas",
+        "Check-up de pintas e sinais",
+        "Procedimentos estéticos (botox, preenchimento)"
+      ],
+      "exams_commonly_ordered": ["Exames laboratoriais específicos (conforme necessidade)"],
+      "preparation": "Não use maquiagem no dia da consulta. Traga fotos de lesões se elas mudam de aparência."
+    },
+    {
+      "name": "Ortopedia e Traumatologia",
+      "slug": "ortopedia",
+      "aliases": ["ortopedia", "ortopedista", "ortopédico", "osso", "articulação", "fratura", "joelho", "coluna", "ombro", "trauma", "traumatologia"],
+      "description": "Diagnóstico e tratamento de lesões e doenças do sistema musculoesquelético: ossos, articulações, músculos e ligamentos.",
+      "when_to_seek": [
+        "Dor nas costas, coluna ou pescoço",
+        "Dor no joelho, ombro, quadril ou tornozelo",
+        "Fraturas ou entorses",
+        "Tendinites e bursites",
+        "Hérnia de disco",
+        "Lesões esportivas",
+        "Artrose ou artrite",
+        "Dor ciática"
+      ],
+      "exams_commonly_ordered": ["Raio-X", "Ressonância magnética", "Tomografia", "Ultrassom musculoesquelético"],
+      "preparation": "Trazer exames de imagem anteriores e laudos. Usar roupa confortável que permita avaliação de movimento."
+    }
+  ]
+}

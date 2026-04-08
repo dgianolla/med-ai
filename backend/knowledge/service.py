@@ -89,8 +89,10 @@ class KnowledgeService:
         query_lower = query.lower()
         results = []
 
-        # ---- Combos e preços ----
-        if any(w in query_lower for w in ["combo", "pacote", "preço", "valor", "custo", "quanto"]):
+        # ============================================================
+        # COMBOS E PREÇOS
+        # ============================================================
+        if any(w in query_lower for w in ["combo", "pacote", "preço", "valor", "custo", "quanto", "custa"]):
             pricing = self._cache.get("pricing", {})
             combos = pricing.get("combos", [])
             if any(w in query_lower for w in ["mulher", "gineco", "papanicolau"]):
@@ -129,12 +131,11 @@ class KnowledgeService:
                             f"Inclui: {', '.join(c['includes'])}"
                         )
             else:
-                # Mostra todos os combos
                 for c in combos:
                     results.append(f"**{c['name']}** — R$ {c['price']:.2f}")
 
             protocols = pricing.get("weight_loss_protocols", [])
-            if any(w in query_lower for w in ["emagrecimento", "ozempic", "mounjaro", "peso"]):
+            if any(w in query_lower for w in ["emagrecimento", "ozempic", "mounjaro", "peso", "protocolo"]):
                 for p in protocols:
                     if "price_90_days" in p:
                         results.append(
@@ -146,7 +147,194 @@ class KnowledgeService:
                             f"**{p['name']}** — R$ {p['price']:.2f} ({p['duration_days']} dias)"
                         )
 
-        # ---- Informações da clínica ----
+            # Check-ups
+            pacotes = pricing.get("pacotes_preco", {})
+            if pacotes:
+                for key, pacote in pacotes.items():
+                    if any(w in query_lower for w in ["check", "checkup", "check-up", "básico", "completo"]):
+                        results.append(
+                            f"**{pacote['name']}** — R$ {pacote['price']:.2f}\n"
+                            f"Inclui: {', '.join(pacote['includes'])}\n"
+                            f"{pacote.get('savings_note', '')}"
+                        )
+
+        # ============================================================
+        # CONSULTAS AVULSAS
+        # ============================================================
+        if any(w in query_lower for w in ["consulta avulsa", "valor da consulta", "preço da consulta", "quanto custa a consulta", "custa a consulta", "custa consulta"]):
+            pricing = self._cache.get("pricing", {})
+            consultas = pricing.get("consultas_avulsas", [])
+            if consultas:
+                results.append("**Consultas Avulsas (valores de referência):**")
+                for c in consultas:
+                    results.append(
+                        f"• {c['specialty']} ({c['professional']}) — R$ {c['price_particular']:.2f}"
+                    )
+
+        # ============================================================
+        # EXAMES AVULSOS
+        # ============================================================
+        if any(w in query_lower for w in ["exame avulso", "preço do exame", "valor do exame", "quanto custa o exame", "custa o exame", "exames de imagem", "exames laboratoriais"]):
+            pricing = self._cache.get("pricing", {})
+            exames = pricing.get("exames_avulsos", [])
+            if exames:
+                # Filtra por categoria se mencionada
+                category_filter = None
+                if "laboratorial" in query_lower or "sangue" in query_lower:
+                    category_filter = "laboratorial"
+                elif "imagem" in query_lower:
+                    category_filter = "imagem"
+                elif "ecg" in query_lower or "mapa" in query_lower or "eletro" in query_lower:
+                    category_filter = "procedimento"
+                elif "papanicolau" in query_lower:
+                    category_filter = "procedimento"
+
+                filtered = [e for e in exames if not category_filter or e["category"] == category_filter]
+                results.append("**Exames Avulsos:**")
+                for e in filtered:
+                    results.append(f"• {e['name']} — R$ {e['price']:.2f}")
+
+        # ============================================================
+        # ESPECIALIDADES
+        # ============================================================
+        if any(w in query_lower for w in ["especialidade", "o que faz", "o que trata", "quando procurar"]):
+            specialties = self._cache.get("specialties", {}).get("specialties", [])
+            # Tenta encontrar especialidade específica
+            target_spec = None
+            for spec in specialties:
+                if any(alias in query_lower for alias in spec.get("aliases", [])):
+                    target_spec = spec
+                    break
+
+            if target_spec:
+                results.append(
+                    f"**{target_spec['name']}**\n"
+                    f"{target_spec['description']}\n\n"
+                    f"**Quando procurar:**\n" +
+                    "\n".join(f"• {w}" for w in target_spec.get("when_to_seek", [])) +
+                    f"\n\n**Preparo:** {target_spec.get('preparation', 'Sem preparo especial.')}"
+                )
+            else:
+                # Lista todas
+                results.append("**Especialidades disponíveis:**")
+                for s in specialties:
+                    results.append(f"• **{s['name']}** — {s['description'][:80]}...")
+
+        # ============================================================
+        # PREPARO
+        # ============================================================
+        if any(w in query_lower for w in ["preparo", "preparação", "como se preparar", "jejum", "antes do exame", "antes da consulta", "como se prepar", "preparar"]):
+            preparations = self._cache.get("preparation", {}).get("preparos", [])
+            # Tenta encontrar preparo específico
+            target_prep = None
+            for p in preparations:
+                if any(w in query_lower for w in [p["type"], p["title"].lower()]):
+                    target_prep = p
+                    break
+
+            if target_prep:
+                prep_text = f"**{target_prep['title']}**\n\n**Preparo:**\n"
+                prep_text += "\n".join(f"• {s}" for s in target_prep.get("preparation", []))
+                if target_prep.get("restrictions"):
+                    prep_text += "\n\n**Restrições:**\n"
+                    prep_text += "\n".join(f"⚠️ {s}" for s in target_prep["restrictions"])
+                if target_prep.get("exam_specifics"):
+                    prep_text += "\n\n**Preparo específico:**\n"
+                    for exam, instr in target_prep["exam_specifics"].items():
+                        prep_text += f"• {exam}: {instr}\n"
+                results.append(prep_text)
+            else:
+                results.append("**Preparos disponíveis para:**")
+                for p in preparations:
+                    results.append(f"• {p['title']}")
+
+        # ============================================================
+        # FAQ
+        # ============================================================
+        faq_triggered = False
+        if any(w in query_lower for w in ["como faço", "posso", "preciso", "tem", "quanto tempo", "o que acontec", "e se", "o que levar", "o que devo", "devo levar", "levar na", "como funciona", "o que é", "o que ", "deve "]):
+            faq = self._cache.get("faq", {}).get("faq", [])
+            # Busca pergunta mais relevante
+            best_match = None
+            best_score = 0
+            for category in faq:
+                for q_item in category.get("questions", []):
+                    # Score simples: quantas palavras da query aparecem na pergunta
+                    q_words = set(q_item["q"].lower().split())
+                    query_words = set(query_lower.split())
+                    score = len(q_words & query_words)
+                    if score > best_score:
+                        best_score = score
+                        best_match = q_item
+
+            if best_match and best_score >= 1:
+                results.append(f"**{best_match['q']}**\n\n{best_match['a']}")
+                faq_triggered = True
+
+        # ============================================================
+        # POLÍTICAS
+        # ============================================================
+        if any(w in query_lower for w in ["cancelamento", "cancelar", "reagendar", "reagendamento", "falta", "faltou"]):
+            policies = self._cache.get("policies", {}).get("policies", {}).get("cancelamento", {})
+            if policies:
+                results.append(f"**{policies.get('title', 'Política de Cancelamento')}**")
+                for rule in policies.get("rules", []):
+                    results.append(f"• {rule}")
+
+        if any(w in query_lower for w in ["atraso", "atrasar", "tolerância", "chegar atrasado"]):
+            policies = self._cache.get("policies", {}).get("policies", {}).get("atraso", {})
+            if policies:
+                results.append(f"**{policies.get('title', 'Política de Atraso')}**")
+                for rule in policies.get("rules", []):
+                    results.append(f"• {rule}")
+
+        if any(w in query_lower for w in ["menor de idade", "criança", "acompanhado", "responsável"]):
+            policies = self._cache.get("policies", {}).get("policies", {}).get("menores", {})
+            if policies:
+                results.append(f"**{policies.get('title', 'Atendimento de Menores')}**")
+                for rule in policies.get("rules", []):
+                    results.append(f"• {rule}")
+
+        if any(w in query_lower for w in ["lgpd", "dados pessoais", "privacidade", "excluir dados"]):
+            policies = self._cache.get("policies", {}).get("policies", {}).get("lgpd", {})
+            if policies:
+                results.append(f"**{policies.get('title', 'Proteção de Dados')}**")
+                for rule in policies.get("rules", []):
+                    results.append(f"• {rule}")
+
+        # ============================================================
+        # CONVÊNIOS (expandido)
+        # ============================================================
+        if any(w in query_lower for w in ["convênio", "convenio", "plano", "particular", "cobertura"]):
+            convenios_data = self._cache.get("convenios", {})
+            convenios = convenios_data.get("convenios", [])
+
+            # Tenta encontrar convênio específico
+            target_conv = None
+            for c in convenios:
+                if c["slug"] in query_lower or c["name"].lower() in query_lower:
+                    target_conv = c
+                    break
+
+            if target_conv:
+                conv_text = f"**{target_conv['name']}**\n"
+                conv_text += f"**Cobertura:** {', '.join(target_conv.get('coverage', []))}\n"
+                conv_text += f"**Coparticipação:** {target_conv.get('coparticipation', 'Consultar')}\n"
+                conv_text += f"**Documentos:** {', '.join(target_conv.get('documents_required', []))}"
+                if target_conv.get("notes"):
+                    conv_text += f"\n\n⚠️ {target_conv['notes']}"
+                results.append(conv_text)
+            else:
+                # Lista todos
+                convenio_names = [c["name"] for c in convenios]
+                results.append(
+                    f"**Convênios aceitos:** {', '.join(convenio_names)}\n\n"
+                    f"Para saber detalhes de um convênio específico, me diga qual!"
+                )
+
+        # ============================================================
+        # INFORMAÇÕES GERAIS DA CLÍNICA
+        # ============================================================
         if any(w in query_lower for w in ["horário", "funcionamento", "aberto", "hora"]):
             hours = self._cache.get("clinic_info", {}).get("hours", {})
             results.append(
@@ -171,13 +359,6 @@ class KnowledgeService:
                 f"**Parcelamento:** Consultas até 2x | Exames/Combos até 10x (sem juros)"
             )
 
-        if any(w in query_lower for w in ["convênio", "convenio", "plano", "particular"]):
-            convenios = self._cache.get("professionals", {}).get("convenios", [])
-            convenio_names = [c["name"] for c in convenios]
-            results.append(
-                f"**Convênios aceitos:** {', '.join(convenio_names)}"
-            )
-
         if any(w in query_lower for w in ["retorno", "gratuito", "30 dia"]):
             ret = self._cache.get("clinic_info", {}).get("return_policy", {})
             results.append(
@@ -189,7 +370,7 @@ class KnowledgeService:
             docs = self._cache.get("clinic_info", {}).get("documents_required", [])
             results.append(f"**Documentos necessários:**\n" + "\n".join(f"• {d}" for d in docs))
 
-        if any(w in query_lower for w in ["exame", "jejum", "resultado", "laboratorial"]):
+        if any(w in query_lower for w in ["jejum", "resultado", "laboratorial"]):
             exam = self._cache.get("clinic_info", {}).get("exam_policy", {})
             results.append(
                 f"**Política de exames:**\n"

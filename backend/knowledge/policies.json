@@ -1,0 +1,91 @@
+{
+  "policies": {
+    "cancelamento": {
+      "title": "Política de Cancelamento",
+      "rules": [
+        "Cancelamentos com mais de 24h de antecedência: sem custo",
+        "Cancelamentos com menos de 24h: sujeito a condições específicas",
+        "Faltas sem aviso podem gerar restrições para futuros agendamentos",
+        "Reagendamento: sujeito à disponibilidade de agenda",
+        "Para reagendar, entre em contato com a mesma forma que agendou (WhatsApp, telefone)"
+      ],
+      "reagendamento": {
+        "same_specialty_same_doctor": "Prioridade para mesma data na semana seguinte",
+        "different_specialty": "Novo agendamento normal",
+        "convensio_patients": "Verificar cobertura do convênio para nova data"
+      }
+    },
+
+    "retorno": {
+      "title": "Política de Retorno",
+      "rules": [
+        "Retorno gratuito em até 30 dias da consulta original",
+        "Deve ser com o mesmo médico da consulta anterior",
+        "Pacientes com exames realizados na clínica têm prioridade de encaixe",
+        "Após 30 dias, cobrado como nova consulta (valor cheio)",
+        "Se o paciente deseja trocar de médico, será uma nova consulta"
+      ],
+      "free_return_window_days": 30,
+      "encaixe": {
+        "description": "Quando não há horário regular disponível, o paciente pode solicitar um 'encaixe' — horário extra fora da grade.",
+        "process": "A equipe entrará em contato para confirmar disponibilidade",
+        "no_guarantee": "Encaixes não são garantidos — dependem da agenda do médico"
+      }
+    },
+
+    "atraso": {
+      "title": "Política de Atraso",
+      "rules": [
+        "Chegar 15 minutos antes do horário agendado",
+        "Tolerância de 15 minutos após o horário agendado",
+        "Após 15 minutos de atraso: o horário pode ser remanejado",
+        "Se o médico atrasar, o paciente será reprogramado sem custo",
+        "Em caso de atraso do paciente, este pode ser encaixado se houver disponibilidade"
+      ]
+    },
+
+    "exames": {
+      "title": "Política de Exames",
+      "rules": [
+        "Pedido médico obrigatório para todos os exames",
+        "Resultados: média de 5 dias úteis",
+        "Exames de imagem podem ter resultado no mesmo dia",
+        "Exames laboratoriais complexos podem levar mais tempo",
+        "Resultados são entregues ao paciente ou enviados ao médico solicitante",
+        "Resultados podem ser enviados por WhatsApp ou retirados na clínica"
+      ]
+    },
+
+    "convenios": {
+      "title": "Política de Convênios",
+      "rules": [
+        "Carteirinha do convênio obrigatória no dia da consulta",
+        "Dental Med: guia emitida pelo convênio antes da consulta",
+        "Se o convênio não cobrir o procedimento, o paciente paga a diferença ou o valor integral",
+        "Verificar cobertura do convênio antes de agendar exames especializados",
+        "Coparticipação: conforme regras de cada convênio"
+      ]
+    },
+
+    "menores": {
+      "title": "Atendimento de Menores de Idade",
+      "rules": [
+        "Menores de 18 anos devem estar acompanhados de responsável",
+        "Responsável deve apresentar documento de identidade",
+        "Trazer carteira de vacinação atualizada (para pediatria)",
+        "Trazer exames recentes da criança"
+      ]
+    },
+
+    "lgpd": {
+      "title": "Proteção de Dados (LGPD)",
+      "rules": [
+        "Todos os dados dos pacientes são tratados conforme a LGPD",
+        "Consentimento para coleta e uso de dados é obtido no primeiro atendimento",
+        "O paciente pode solicitar exclusão de seus dados a qualquer momento",
+        "Dados de saúde são tratados com sigilo absoluto",
+        "Compartilhamento de dados apenas com autorização expressa do paciente"
+      ]
+    }
+  }
+}

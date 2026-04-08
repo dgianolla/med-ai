@@ -1,0 +1,180 @@
+{
+  "faq": [
+    {
+      "category": "agendamento",
+      "questions": [
+        {
+          "q": "Como faço para marcar uma consulta?",
+          "a": "É simples! Me diga qual especialidade você precisa e se prefere atendimento particular ou por convênio. Vou verificar as datas e horários disponíveis para você."
+        },
+        {
+          "q": "Posso escolher o médico?",
+          "a": "Sim! Temos profissionais para cada especialidade. Se você já tem preferência, posso verificar a agenda. Se não, indico o profissional com maior disponibilidade."
+        },
+        {
+          "q": "Posso reagendar minha consulta?",
+          "a": "Sim, posso verificar novas datas disponíveis. Só me avise com antecedência para que outra pessoa possa ocupar seu horário. Consulte nossa política de cancelamento."
+        },
+        {
+          "q": "Tem consulta aos sábados?",
+          "a": "Sim! Funcionamos aos sábados das 8h às 12h. Vou verificar a disponibilidade para você."
+        },
+        {
+          "q": "E se não tiver horário na data que eu quero?",
+          "a": "Posso verificar datas alternativas ou solicitar um 'encaixe' — um horário extra fora da grade. Nossa equipe entrará em contato para confirmar."
+        },
+        {
+          "q": "Qual a antecedência mínima para agendar?",
+          "a": "Você pode agendar para o mesmo dia se houver disponibilidade. Recomendamos agendar com pelo menos 1 dia de antecedência para garantir seu horário."
+        }
+      ]
+    },
+    {
+      "category": "convênios",
+      "questions": [
+        {
+          "q": "Quais convênios vocês aceitam?",
+          "a": "Aceitamos: FUNSERV, AMHEMED PLUS, INCOR, Ossel e DENTAL MED. Também atendemos particular com condições especiais de pagamento."
+        },
+        {
+          "q": "Vocês aceitam [convênio não listado]?",
+          "a": "Ainda não trabalhamos com esse convênio, mas nossos combos e consultas particulares têm preços muito vantajosos! Posso verificar as opções para você."
+        },
+        {
+          "q": "Preciso de autorização do convênio antes?",
+          "a": "Depende do seu convênio. Para a maioria, basta apresentar a carteirinha no dia. O Dental Med exige que você traga a guia médica emitida pelo próprio convênio antes da consulta."
+        },
+        {
+          "q": "Qual a diferença entre particular e convênio?",
+          "a": "Ambos recebem o mesmo atendimento de qualidade. A diferença é a forma de pagamento: no particular você paga diretamente e pode parcelar; no convênio, o custo é coberto pelo seu plano."
+        }
+      ]
+    },
+    {
+      "category": "pagamento",
+      "questions": [
+        {
+          "q": "Quais formas de pagamento aceitam?",
+          "a": "Aceitamos: Dinheiro, PIX (chave: 56.091.716/0001-04), débito e crédito."
+        },
+        {
+          "q": "Posso parcelar?",
+          "a": "Sim! Consultas podem ser parceladas em até 2x sem juros. Exames e combos podem ser parcelados em até 10x sem juros."
+        },
+        {
+          "q": "Tem desconto à vista?",
+          "a": "Sim, oferecemos descontos para pagamento à vista (dinheiro ou PIX). Consulte nossa equipe de atendimento para valores."
+        },
+        {
+          "q": "Emitiram nota fiscal?",
+          "a": "Sim, emitimos nota fiscal. Informe seus dados (nome completo e CPF) no momento do pagamento."
+        }
+      ]
+    },
+    {
+      "category": "exames",
+      "questions": [
+        {
+          "q": "Preciso de pedido médico para fazer exames?",
+          "a": "Sim, é necessário apresentar pedido médico para realizar exames na clínica."
+        },
+        {
+          "q": "Quanto tempo demora para ficar pronto o resultado?",
+          "a": "Em média, 5 dias úteis. Exames de imagem (Raio-X, ultrassom) podem ter resultado no mesmo dia. Exames laboratoriais complexos podem levar mais tempo."
+        },
+        {
+          "q": "Preciso fazer jejum para exames?",
+          "a": "Para exames laboratoriais (sangue), o jejum é de 8 a 12 horas. Você pode beber água normalmente. Para exames de imagem, geralmente não precisa de jejum."
+        },
+        {
+          "q": "Posso enviar meus exames por aqui?",
+          "a": "Sim! Pode enviar foto, PDF ou imagem dos seus exames. Vou analisar e orientar sobre os próximos passos."
+        },
+        {
+          "q": "Vocês fazem coleta de exames no local?",
+          "a": "Sim, realizamos coleta de exames laboratoriais na própria clínica. Basta trazer o pedido médico e seus documentos."
+        },
+        {
+          "q": "Posso fazer o combo e depois adicionar exames?",
+          "a": "Sim! Os combos incluem exames pré-definidos, mas você pode adicionar exames extras. Consulte o valor com nossa equipe."
+        }
+      ]
+    },
+    {
+      "category": "retorno",
+      "questions": [
+        {
+          "q": "O retorno é gratuito?",
+          "a": "Sim! O retorno é gratuito em até 30 dias após a consulta original, com o mesmo médico. Basta me informar quando foi sua última consulta."
+        },
+        {
+          "q": "E se passaram mais de 30 dias?",
+          "a": "Após 30 dias, o retorno é cobrado como uma nova consulta (valor cheio). Mas posso verificar disponibilidade e agendar normalmente."
+        },
+        {
+          "q": "Posso fazer retorno com outro médico?",
+          "a": "O retorno gratuito é com o mesmo médico da consulta original. Se deseja trocar de médico, será uma nova consulta."
+        }
+      ]
+    },
+    {
+      "category": "preparo",
+      "questions": [
+        {
+          "q": "O que devo levar na consulta?",
+          "a": "RG ou CNH original, carteirinha do convênio (se aplicável), pedido médico (para exames), exames anteriores e lista de medicamentos em uso."
+        },
+        {
+          "q": "Com quanto tempo de antecedência devo chegar?",
+          "a": "Chegue 15 minutos antes do horário agendado. Temos tolerância de 15 minutos — após isso, o horário pode ser remanejado."
+        },
+        {
+          "q": "Preciso estar em jejum para consulta?",
+          "a": "Não é necessário jejum para a consulta médica em si. Se o médico solicitar exames de sangue no mesmo dia, esses sim exigem jejum de 8 a 12 horas."
+        },
+        {
+          "q": "Crianças podem ir à consulta?",
+          "a": "Sim! Para consultas com pediatra, traga a carteirinha de vacinação e exames da criança. Para outras especialidades, crianças podem acompanhar os pais."
+        }
+      ]
+    },
+    {
+      "category": "cancelamento",
+      "questions": [
+        {
+          "q": "Posso cancelar minha consulta?",
+          "a": "Sim, pedimos que avise com pelo menos 24 horas de antecedência para que outra pessoa possa ocupar o horário. Após esse prazo, podem ser aplicadas condições especiais."
+        },
+        {
+          "q": "O que acontece se eu faltar?",
+          "a": "Faltas sem aviso podem gerar restrições para futuros agendamentos. Se não puder comparecer, nos avise para que possamos reagendar."
+        },
+        {
+          "q": "Tem taxa de cancelamento?",
+          "a": "Se o cancelamento for feito com mais de 24h de antecedência, não há taxa. Cancelamentos de última hora podem estar sujeitos a condições específicas."
+        }
+      ]
+    },
+    {
+      "category": "protocolos_emagrecimento",
+      "questions": [
+        {
+          "q": "Como funciona o protocolo de Ozempic?",
+          "a": "O protocolo Ozempic tem duração de 90 dias e custa R$ 3.300,00. Inclui: aplicação semanal, reposição de vitaminas/hormonal quando necessário, e consulta com endocrinologista a cada 15 dias. Só vendemos o protocolo completo de 90 dias (não mensal). É necessária consulta médica prévia."
+        },
+        {
+          "q": "Como funciona o protocolo de Mounjaro?",
+          "a": "O Mounjaro pode ser mensal (R$ 1.800,00/mês) ou protocolo de 90 dias (R$ 5.000,00). Inclui: aplicação semanal, reposição de vitaminas/hormonal quando necessário, e consulta com endocrinologista a cada 15 dias. É necessária consulta médica prévia."
+        },
+        {
+          "q": "Preciso de consulta antes de iniciar o protocolo?",
+          "a": "Sim! É obrigatória uma consulta com o endocrinologista para avaliação individualizada antes de iniciar qualquer protocolo de emagrecimento."
+        },
+        {
+          "q": "Posso parcelar o protocolo?",
+          "a": "Sim! Os protocolos podem ser parcelados em até 10x sem juros."
+        }
+      ]
+    }
+  ]
+}

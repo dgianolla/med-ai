@@ -1,127 +1,107 @@
 {
-  "combos": [
+  "consultas_avulsas": [
     {
-      "id": "combo_mulher_completo",
-      "name": "Combo Mulher Completo",
-      "price": 279.00,
-      "includes": [
-        "Consulta ginecológica",
-        "Papanicolau",
-        "Ultrassom transvaginal",
-        "Retorno em 30 dias"
-      ]
+      "specialty": "Clínico Geral",
+      "professional": "Dr. Ricardo Dilda",
+      "price_particular": 250.00,
+      "price_note": "Valor de referência — consultar equipe de atendimento para valores atualizados"
     },
     {
-      "id": "combo_mulher_exames",
-      "name": "Combo Mulher com Exames",
-      "price": 599.00,
-      "includes": [
-        "Consulta ginecológica",
-        "Papanicolau",
-        "Ultrassom transvaginal",
-        "11 exames laboratoriais",
-        "Retorno em 30 dias"
-      ],
-      "lab_exams": [
-        "Hemograma", "Glicemia", "Colesterol total e frações",
-        "Triglicérides", "TSH", "T4 livre", "FSH", "LH",
-        "Prolactina", "Progesterona", "Vitamina D"
-      ]
+      "specialty": "Cardiologia",
+      "professional": "Dr. Ricardo Dilda",
+      "price_particular": 350.00,
+      "price_note": "Valor de referência — consultar equipe de atendimento para valores atualizados"
     },
     {
-      "id": "combo_homem",
-      "name": "Combo Homem",
-      "price": 370.00,
-      "includes": [
-        "Consulta médica",
-        "14 exames laboratoriais",
-        "Retorno em 30 dias"
-      ],
-      "lab_exams": [
-        "Hemograma", "Glicemia", "Colesterol", "Triglicérides",
-        "Ácido úrico", "Ureia", "Creatinina", "TGO", "TGP",
-        "Testosterona total e livre", "PSA total e livre"
-      ]
+      "specialty": "Psiquiatria",
+      "professional": "Dra. Yalanny Thiery",
+      "price_particular": 400.00,
+      "price_note": "Valor de referência — consultar equipe de atendimento para valores atualizados"
     },
     {
-      "id": "combo_idoso",
-      "name": "Combo Idoso",
-      "price": 489.00,
-      "includes": [
-        "Consulta médica",
-        "15 exames laboratoriais",
-        "Retorno em 30 dias"
-      ],
-      "lab_exams": [
-        "Hemograma", "Glicemia", "Hemoglobina glicada", "Colesterol",
-        "Triglicérides", "Cálcio", "Fósforo", "Vitaminas B12/D/C",
-        "TGO", "TGP", "Ureia", "Creatinina", "Urina tipo 1"
-      ]
+      "specialty": "Endocrinologia e Metabologia",
+      "professional": "Dr. Arthur Wagner",
+      "price_particular": 350.00,
+      "price_note": "Valor de referência — consultar equipe de atendimento para valores atualizados"
     },
     {
-      "id": "combo_pediatria",
-      "name": "Combo Pediatria",
-      "price": 464.00,
-      "includes": [
-        "Consulta pediátrica",
-        "10 exames laboratoriais",
-        "Retorno em 30 dias"
-      ],
-      "lab_exams": [
-        "Hemograma", "Glicemia", "Colesterol", "Triglicérides",
-        "Ferro", "Ferritina", "Vitaminas B12/D", "Urina tipo 1",
-        "Parasitológico de fezes"
-      ]
+      "specialty": "Ginecologia e Obstetrícia",
+      "professional": "Dra. Silmara Capeleto",
+      "price_particular": 350.00,
+      "price_note": "Valor de referência — consultar equipe de atendimento para valores atualizados"
     },
     {
-      "id": "combo_cardiologia",
-      "name": "Combo Cardiologista",
-      "price": 599.00,
-      "includes": [
-        "Consulta cardiológica",
-        "ECG",
-        "MAPA (monitoramento pressão 24h)",
-        "10 exames laboratoriais",
-        "Retorno em 30 dias"
-      ],
-      "lab_exams": [
-        "Hemograma", "Glicemia", "Colesterol", "Triglicérides",
-        "Ácido úrico", "Ureia", "Creatinina", "TGO", "TGP",
-        "PSA"
-      ]
+      "specialty": "Ginecologia sem Obstetrícia",
+      "professional": "Dra. Paolla Cappelari",
+      "price_particular": 350.00,
+      "price_note": "Valor de referência — consultar equipe de atendimento para valores atualizados"
+    },
+    {
+      "specialty": "Dermatologia",
+      "professional": "Dra. Ellen Santini",
+      "price_particular": 350.00,
+      "price_note": "Valor de referência — consultar equipe de atendimento para valores atualizados"
+    },
+    {
+      "specialty": "Ortopedia e Traumatologia",
+      "professional": "Dr. Samuel Lessa",
+      "price_particular": 350.00,
+      "price_note": "Valor de referência — consultar equipe de atendimento para valores atualizados"
     }
   ],
 
-  "weight_loss_protocols": [
-    {
-      "id": "ozempic",
-      "name": "Protocolo Ozempic",
-      "duration_days": 90,
-      "price": 3300.00,
-      "pricing_note": "Só fechamos protocolo completo de 90 dias — não vendemos mensal",
-      "includes": [
-        "Aplicação semanal",
-        "Reposição de vitaminas/hormonal quando necessário",
-        "Consulta com endocrinologista a cada 15 dias"
-      ]
+  "exames_avulsos": [
+    {"name": "Hemograma completo", "price": 45.00, "category": "laboratorial"},
+    {"name": "Glicemia", "price": 25.00, "category": "laboratorial"},
+    {"name": "Colesterol total e frações", "price": 55.00, "category": "laboratorial"},
+    {"name": "Triglicérides", "price": 35.00, "category": "laboratorial"},
+    {"name": "Ácido úrico", "price": 35.00, "category": "laboratorial"},
+    {"name": "Ureia", "price": 25.00, "category": "laboratorial"},
+    {"name": "Creatinina", "price": 30.00, "category": "laboratorial"},
+    {"name": "TGO (AST)", "price": 30.00, "category": "laboratorial"},
+    {"name": "TGP (ALT)", "price": 30.00, "category": "laboratorial"},
+    {"name": "TSH", "price": 40.00, "category": "laboratorial"},
+    {"name": "T4 livre", "price": 45.00, "category": "laboratorial"},
+    {"name": "FSH", "price": 45.00, "category": "laboratorial"},
+    {"name": "LH", "price": 45.00, "category": "laboratorial"},
+    {"name": "Prolactina", "price": 45.00, "category": "laboratorial"},
+    {"name": "Progesterona", "price": 45.00, "category": "laboratorial"},
+    {"name": "Vitamina D", "price": 50.00, "category": "laboratorial"},
+    {"name": "Vitamina B12", "price": 45.00, "category": "laboratorial"},
+    {"name": "Ferro", "price": 30.00, "category": "laboratorial"},
+    {"name": "Ferritina", "price": 45.00, "category": "laboratorial"},
+    {"name": "Hemoglobina glicada", "price": 40.00, "category": "laboratorial"},
+    {"name": "Cálcio", "price": 25.00, "category": "laboratorial"},
+    {"name": "Fósforo", "price": 25.00, "category": "laboratorial"},
+    {"name": "Vitamina C", "price": 50.00, "category": "laboratorial"},
+    {"name": "Testosterona total", "price": 45.00, "category": "laboratorial"},
+    {"name": "Testosterona livre", "price": 55.00, "category": "laboratorial"},
+    {"name": "PSA total", "price": 50.00, "category": "laboratorial"},
+    {"name": "PSA livre", "price": 55.00, "category": "laboratorial"},
+    {"name": "Urina tipo 1", "price": 25.00, "category": "laboratorial"},
+    {"name": "Parasitológico de fezes", "price": 35.00, "category": "laboratorial"},
+    {"name": "Eletrocardiograma (ECG)", "price": 120.00, "category": "procedimento"},
+    {"name": "MAPA (Monitoramento 24h)", "price": 250.00, "category": "procedimento"},
+    {"name": "Raio-X", "price": 150.00, "category": "imagem"},
+    {"name": "Ultrassom", "price": 200.00, "category": "imagem"},
+    {"name": "Ultrassom transvaginal", "price": 220.00, "category": "imagem"},
+    {"name": "Ressonância magnética", "price": 600.00, "category": "imagem"},
+    {"name": "Tomografia", "price": 500.00, "category": "imagem"},
+    {"name": "Papanicolau", "price": 120.00, "category": "procedimento"}
+  ],
+
+  "pacotes_preco": {
+    "checkup_basico": {
+      "name": "Check-up Básico",
+      "price": 350.00,
+      "includes": ["Consulta clínico geral", "Hemograma", "Glicemia", "Colesterol", "Triglicérides", "Urina tipo 1"],
+      "savings_note": "Economia de ~R$ 80,00 comparado aos itens avulsos"
     },
-    {
-      "id": "mounjaro",
-      "name": "Protocolo Mounjaro",
-      "price_monthly": 1800.00,
-      "price_90_days": 5000.00,
-      "includes": [
-        "Aplicação semanal",
-        "Reposição de vitaminas/hormonal quando necessário",
-        "Consulta com endocrinologista a cada 15 dias"
-      ]
+    "checkup_completo": {
+      "name": "Check-up Completo",
+      "price": 550.00,
+      "includes": ["Consulta clínico geral", "Hemograma completo", "Glicemia", "Colesterol e frações", "Triglicérides", "TSH", "T4 livre", "Vitamina D", "Urina tipo 1", "Creatinina", "Ureia"],
+      "savings_note": "Economia de ~R$ 150,00 comparado aos itens avulsos"
     }
-  ],
-
-  "weight_loss_requirements": [
-    "Consulta médica prévia obrigatória",
-    "Avaliação individualizada"
-  ],
-
-  "convenios_accepted": ["Funserv", "Amhemed", "Incor", "Ossel", "Dental Med"]
+  }
 }

@@ -1,0 +1,132 @@
+{
+  "preparos": [
+    {
+      "type": "consulta_medica",
+      "title": "Consulta Médica Geral",
+      "preparation": [
+        "Chegar 15 minutos antes do horário",
+        "Trazer RG ou CNH original",
+        "Trazer carteirinha do convênio (se aplicável)",
+        "Trazer exames anteriores relacionados ao motivo da consulta",
+        "Trazer lista de medicamentos em uso (nome, dose, horário)",
+        "Trazer resultados de exames recentes (últimos 6 meses)"
+      ],
+      "restrictions": []
+    },
+    {
+      "type": "cardiologia",
+      "title": "Consulta de Cardiologia",
+      "preparation": [
+        "Evitar café e estimulantes 12 horas antes (se for fazer ECG)",
+        "Não usar cremes no peito no dia da consulta (para ECG)",
+        "Trazer mapa de pressão arterial (se fizer monitoramento domiciliar)",
+        "Trazer exames cardíacos anteriores",
+        "Informar histórico familiar de doenças cardíacas"
+      ],
+      "restrictions": [
+        "Não fumar 30 minutos antes da consulta",
+        "Evitar exercícios físicos intensos no dia"
+      ]
+    },
+    {
+      "type": "exames_laboratoriais",
+      "title": "Exames Laboratoriais (Sangue)",
+      "preparation": [
+        "Jejum de 8 a 12 horas (pode beber água)",
+        "Não ingerir álcool 24 horas antes",
+        "Evitar atividade física intensa 24 horas antes",
+        "Trazer pedido médico",
+        "Trazer RG ou CNH original"
+      ],
+      "restrictions": [
+        "Não fumar durante o jejum",
+        "Informar ao laboratório sobre medicamentos em uso",
+        "Alguns exames (como curva glicêmica) têm preparo específico — siga a orientação médica"
+      ],
+      "exam_specifics": {
+        "curva_glicêmica": "Permanecer na clínica durante todo o exame. Não fumar nem se exercitar entre as coletas.",
+        "hormonais_FSH_LH": "Mulheres: informar o dia do ciclo menstrual. Geralmente coletado entre 2º e 5º dia.",
+        "testosterona": "Coletar preferencialmente pela manhã (7h-10h), quando os níveis estão mais altos.",
+        "PSA": "Evitar ejaculação, bicicleta e toque retal 48 horas antes do exame."
+      }
+    },
+    {
+      "type": "ecg",
+      "title": "Eletrocardiograma (ECG)",
+      "preparation": [
+        "Tomar banho antes da consulta (não usar cremes no peito)",
+        "Trazer exame anterior (se tiver)",
+        "Trazer pedido médico"
+      ],
+      "restrictions": [
+        "Evitar café 12 horas antes",
+        "Não usar hidratante/loção no peito no dia"
+      ]
+    },
+    {
+      "type": "mapa",
+      "title": "MAPA (Monitoramento Ambulatorial de Pressão Arterial 24h)",
+      "preparation": [
+        "Usar roupa confortável (o aparelho fica preso ao cinto)",
+        "Tomar banho antes de instalar o aparelho",
+        "Trazer pedido médico"
+      ],
+      "restrictions": [
+        "Não molhar o aparelho durante 24h (não tomar banho com ele)",
+        "Não mexer nos botões ou tubos",
+        "Manter braço parado quando o aparelho inflar",
+        "Anotar atividades e sintomas no diário fornecido"
+      ]
+    },
+    {
+      "type": "ultrassom",
+      "title": "Ultrassom",
+      "preparation": [
+        "Ultrassom abdominal: jejum de 6 horas e bexiga cheia",
+        "Ultrassom transvaginal: bexiga vazia",
+        "Ultrassom de tireoide: sem preparo especial",
+        "Trazer pedido médico e exames anteriores"
+      ],
+      "restrictions": []
+    },
+    {
+      "type": "ressonancia",
+      "title": "Ressonância Magnética",
+      "preparation": [
+        "Trazer pedido médico com a área a ser examinada",
+        "Informar se possui implantes metálicos (próteses, pinos, marca-passo)",
+        "Trazer exames anteriores da mesma área",
+        "Usar roupa sem metal (zíper, botão)"
+      ],
+      "restrictions": [
+        "Não entrar com objetos metálicos na sala de exame",
+        "Informar se tem claustrofobia"
+      ]
+    },
+    {
+      "type": "raio_x",
+      "title": "Raio-X",
+      "preparation": [
+        "Sem preparo especial na maioria dos casos",
+        "Remover objetos metálicos da área a ser examinada",
+        "Trazer pedido médico"
+      ],
+      "restrictions": [
+        "Informar se há possibilidade de gravidez"
+      ]
+    },
+    {
+      "type": "papanicolau",
+      "title": "Papanicolau (Exame Preventivo)",
+      "preparation": [
+        "Não estar menstruada",
+        "Evitar relações sexuais 48 horas antes",
+        "Não usar duchas vaginais, cremes ou óvulos vaginais 48 horas antes",
+        "Trazer RG e pedido médico"
+      ],
+      "restrictions": [
+        "Evitar exame durante menstruação (resultados podem ser alterados)"
+      ]
+    }
+  ]
+}

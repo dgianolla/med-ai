@@ -1,0 +1,100 @@
+{
+  "convenios": [
+    {
+      "name": "FUNSERV",
+      "slug": "funserv",
+      "db_id": 59001,
+      "coverage": [
+        "Consultas médicas",
+        "Exames laboratoriais",
+        "Exames de imagem (Raio-X, Ultrassom, Ressonância, Tomografia)",
+        "Procedimentos (ECG, MAPA, Papanicolau)"
+      ],
+      "coparticipation": "Conforme tabela FUNSERV — pode haver coparticipação em exames",
+      "authorization": "Não exige autorização prévia para consultas. Verificar para exames especializados.",
+      "documents_required": ["Carteirinha FUNSERV", "RG ou CNH", "Pedido médico"],
+      "notes": "Um dos convênios mais abrangentes que atendemos."
+    },
+    {
+      "name": "AMHEMED PLUS",
+      "slug": "amhemed",
+      "db_id": 59000,
+      "coverage": [
+        "Consultas médicas",
+        "Exames laboratoriais",
+        "Exames de imagem básicos"
+      ],
+      "coparticipation": "Pode haver coparticipação conforme o plano contratado",
+      "authorization": "Verificar autorização prévia para exames de imagem e procedimentos",
+      "documents_required": ["Carteirinha AMHEMED", "RG ou CNH", "Pedido médico"],
+      "notes": "Verificar se o plano específico cobre a especialidade desejada."
+    },
+    {
+      "name": "INCOR",
+      "slug": "incor",
+      "db_id": 59002,
+      "coverage": [
+        "Consultas médicas",
+        "Exames laboratoriais",
+        "Exames de imagem"
+      ],
+      "coparticipation": "Conforme tabela INCOR",
+      "authorization": "Verificar cobertura antes de agendar",
+      "documents_required": ["Carteirinha INCOR", "RG ou CNH", "Pedido médico"],
+      "notes": ""
+    },
+    {
+      "name": "OSSEL",
+      "slug": "ossel",
+      "db_id": null,
+      "coverage": [
+        "Consultas médicas"
+      ],
+      "coparticipation": "Conforme plano",
+      "authorization": "Verificar",
+      "documents_required": ["Carteirinha OSSEL", "RG ou CNH", "Pedido médico"],
+      "notes": "Verificar abrangência completa no momento do agendamento."
+    },
+    {
+      "name": "DENTAL MED",
+      "slug": "dental_med",
+      "db_id": 58999,
+      "coverage": [
+        "Consultas médicas (conforme plano)"
+      ],
+      "coparticipation": "Conforme plano",
+      "authorization": "SEMPRE exigir guia emitida pelo próprio convênio ANTES da consulta",
+      "documents_required": ["Carteirinha DENTAL MED", "Guia do convênio", "RG ou CNH", "Pedido médico"],
+      "notes": "⚠️ ATENÇÃO: Este convênio exige GUIA emitida pelo próprio convênio antes da consulta. Sem a guia, não é possível atender."
+    },
+    {
+      "name": "MEDPREV",
+      "slug": "medprev",
+      "db_id": 59756,
+      "coverage": [
+        "Consultas médicas",
+        "Exames (conforme plano)"
+      ],
+      "coparticipation": "Conforme plano",
+      "authorization": "Verificar cobertura",
+      "documents_required": ["Carteirinha MEDPREV", "RG ou CNH", "Pedido médico"],
+      "notes": "Verificar abrangência no momento do agendamento."
+    }
+  ],
+
+  "particular": {
+    "name": "Particular",
+    "db_id": 48339,
+    "benefits": [
+      "Sem necessidade de autorização de convênio",
+      "Agendamento mais rápido",
+      "Parcelamento em até 2x (consultas) ou 10x (exames/combos)",
+      "Descontos para pagamento à vista (dinheiro ou PIX)",
+      "Acesso a todos os profissionais e especialidades"
+    ],
+    "payment_methods": ["Dinheiro", "PIX", "Débito", "Crédito"],
+    "pix_key": "56.091.716/0001-04"
+  },
+
+  "convenio_not_listed_response": "Ainda não trabalhamos com esse convênio, mas nossos combos e consultas particulares têm preços muito vantajosos! Posso verificar as opções para você. 😊"
+}

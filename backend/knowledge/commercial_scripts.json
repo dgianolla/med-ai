@@ -1,0 +1,74 @@
+{
+  "commercial_scripts": {
+    "apresentar_combo": {
+      "description": "Como apresentar um combo ao paciente",
+      "script": "Encontrei a opção ideal para você! 🎯\n\n*{nome_combo}* — R$ {preco}\n\nInclui:\n{lista_inclusos}\n\n*Retorno em 30 dias incluso!* ✨\n\nO que acha? Posso agendar para você?"
+    },
+    "apresentar_protocolo_emagrecimento": {
+      "description": "Como apresentar protocolo de emagrecimento",
+      "script": "Para o *{nome_protocolo}*, funciona assim:\n\n⏱️ Duração: {duracao}\n💰 Investimento: R$ {preco}\n\nInclui:\n{lista_inclusos}\n\n⚠️ É necessária uma *consulta médica prévia* com o endocrinologista para avaliação individualizada.\n\nQuer que eu agende essa consulta primeiro?"
+    },
+    "paciente_quer_só_consulta": {
+      "description": "Quando paciente quer apenas consulta avulsa, não combo",
+      "script": "Claro! Posso agendar sua consulta avulsa. Também temos *combos* que incluem consulta + exames com desconto — às vezes vale mais a pena! Quer que eu mostre as opções ou prefere só a consulta?"
+    },
+    "pacinte_pede_desconto": {
+      "description": "Como responder quando paciente pede desconto",
+      "script": "Entendo perfeitamente! Para pagamento *à vista* (dinheiro ou PIX), temos condições especiais. Posso verificar com a equipe de atendimento e te retorno com o melhor valor. 😊"
+    },
+    "fechamento_venda": {
+      "description": "Scripts para fechar a venda do combo/protocolo",
+      "variants": [
+        "Ótima escolha! Para confirmar, preciso do seu *nome completo* e *telefone*. Pode me enviar?",
+        "Perfeito! Vou registrar seu agendamento. Me confirma seu nome completo e telefone?",
+        "Excelente! Vou cuidar de tudo para você. Só preciso do seu nome completo e telefone para finalizar."
+      ]
+    },
+    "paciente_em_dúvida": {
+      "description": "Quando paciente está em dúvida entre combos",
+      "script": "Sem pressa! Vou te ajudar a escolher:\n\n- Se você quer uma *avaliação completa* → o Combo Completo é ideal\n- Se já sabe que precisa de *exames específicos* → o Combo com Exames é melhor custo-benefício\n\nQual faz mais sentido para o seu caso?"
+    },
+    "encerramento_pos_venda": {
+      "description": "Encerramento após venda ou quando paciente agradeceu",
+      "script": "Ótimo! Qualquer dúvida, estamos à disposição. Tenha um *ótimo dia!* 🌟"
+    }
+  },
+
+  "objection_handling": {
+    "está_caro": {
+      "objection": "Está caro / Não tenho dinheiro agora",
+      "responses": [
+        "Entendo! Por isso oferecemos *parcelamento sem juros* — em até 10x nos combos e exames. Assim fica mais acessível. Posso simular para você?",
+        "Compreendo! Temos também opções mais acessíveis. Posso verificar o combo mais adequado ao seu orçamento?",
+        "Sem problemas! Para pagamento à vista (PIX ou dinheiro), temos descontos especiais. Posso verificar o valor?"
+      ]
+    },
+    "vou_pensar": {
+      "objection": "Vou pensar / Vou ver com meu marido/esposa",
+      "responses": [
+        "Claro, é uma decisão importante! Mas lembre-se: os *combos incluem retorno em 30 dias*, então você já tem o acompanhamento completo. Se precisar de mais informações, estou aqui! 😊",
+        "Sem pressa! Enquanto isso, posso deixar reservada uma data para você? Assim não perde a disponibilidade."
+      ]
+    },
+    "prefiro_sus": {
+      "objection": "Prefiro fazer pelo SUS / Posto de saúde",
+      "responses": [
+        "Entendo perfeitamente! A diferença aqui é a *rapidez* — no SUS a fila pode ser longa. Aqui você tem consulta em poucos dias, com retorno incluso e acompanhamento personalizado. Vale a pena conferir! 😊"
+      ]
+    },
+    "quero_só_exame": {
+      "objection": "Quero só fazer o exame, sem consulta",
+      "responses": [
+        "Para exames, precisamos de *pedido médico*. Se você já tem o pedido, posso agendar a coleta. Se não, o combo já inclui a consulta + exames com desconto — às vezes sai mais em conta! Quer que eu verifique?"
+      ]
+    }
+  },
+
+  "gatilhos_persuasivos": [
+    "⏰ *Vagas limitadas* essa semana — posso garantir a sua?",
+    "📅 Essa é a *próxima data disponível* — quer que eu reserve?",
+    "🎯 O combo que você escolheu tem *retorno incluso* — isso é uma vantagem de R$ 350+!",
+    "💡 Muitos pacientes que fizeram esse combo disseram que *valeu muito a pena* pelo custo-benefício.",
+    "✨ Nosso *parcelamento é sem juros* — você não paga nada a mais por isso."
+  ]
+}
