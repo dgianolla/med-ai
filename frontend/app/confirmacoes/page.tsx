@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { useToast } from "@/components/Toast";
 import { TableSkeleton } from "@/components/Skeletons";
@@ -24,6 +24,12 @@ export default function ConfirmationsPage() {
   const [loading, setLoading] = useState(false);
   const [triggering, setTriggering] = useState(false);
 
+  // Refs para toast functions — evita loop infinito no useCallback
+  const toastRef = useRef({ success, error, info });
+  useEffect(() => {
+    toastRef.current = { success, error, info };
+  }, [success, error, info]);
+
   const fetchPreview = useCallback(async (date: string) => {
     if (!date) return;
     setLoading(true);
@@ -37,26 +43,26 @@ export default function ConfirmationsPage() {
       const schedules = data.schedules || [];
       setConfirmations(schedules);
       if (schedules.length === 0) {
-        info("Nenhum agendamento encontrado para esta data.");
+        toastRef.current.info("Nenhum agendamento encontrado para esta data.");
       }
     } catch (e: any) {
       console.error("[PREVIEW] Erro:", e);
-      error(e.message || "Erro ao carregar agenda");
+      toastRef.current.error(e.message || "Erro ao carregar agenda");
       setConfirmations([]);
     } finally {
       setLoading(false);
     }
-  }, [error, info]);
+  }, []);
 
-  // Initialize with tomorrow for default
+  // Auto-fetch a agenda quando a página carrega (roda apenas 1x)
   useEffect(() => {
     const tmr = new Date();
     tmr.setDate(tmr.getDate() + 1);
     const defaultDate = tmr.toISOString().split("T")[0];
     setTargetDate(defaultDate);
-    // Auto-fetch a agenda quando a página carrega
     fetchPreview(defaultDate);
-  }, [fetchPreview]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     // Poll every 5s to see dispatch status updates ONLY if triggering
