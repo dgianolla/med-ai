@@ -140,15 +140,15 @@ async def preview_schedules(date: str):
         else:
             logger.warning("[PREVIEW] Nenhum agendamento retornado pela AppHealth para %s", date)
 
-        # Busca status atuais no Supabase
-        db = await get_supabase()
         status_map = {}
         try:
+            # Falhas no Supabase nao devem derrubar o preview da agenda.
+            db = await get_supabase()
             db_res = await db.table("schedule_confirmations").select("appointment_id, status").eq("appointment_date", date).execute()
             status_map = {item["appointment_id"]: item["status"] for item in (db_res.data or [])}
             logger.info("[PREVIEW] Supabase retornou %d status existentes", len(status_map))
         except Exception as e:
-            logger.warning(f"[PREVIEW] Erro ao buscar status no BD (tabela pode nao existir): {e}")
+            logger.warning("[PREVIEW] Erro ao buscar status no BD (seguindo sem status): %s", e)
 
         preview = []
         skipped_no_phone = 0
