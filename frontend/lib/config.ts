@@ -1,9 +1,10 @@
 /**
  * Configuração centralizada da API
- * Resolve inconsistência de portas entre componentes
+ * O frontend fala sempre com a mesma origem e o proxy do Next.js
+ * encaminha as requisições para o backend real no servidor.
  */
 
-export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+export const API_URL = "";
 
 /**
  * Intervalos de polling (em milissegundos)

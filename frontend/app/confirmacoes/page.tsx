@@ -16,6 +16,10 @@ type Confirmation = {
   status: "not_started" | "pending" | "sent" | "failed" | "confirmed" | "canceled";
 };
 
+function getErrorMessage(error: unknown, fallback: string) {
+  return error instanceof Error ? error.message : fallback;
+}
+
 export default function ConfirmationsPage() {
   const { success, error, info } = useToast();
   const [delay, setDelay] = useState(10);
@@ -45,9 +49,9 @@ export default function ConfirmationsPage() {
       if (schedules.length === 0) {
         toastRef.current.info("Nenhum agendamento encontrado para esta data.");
       }
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error("[PREVIEW] Erro:", e);
-      toastRef.current.error(e.message || "Erro ao carregar agenda");
+      toastRef.current.error(getErrorMessage(e, "Erro ao carregar agenda"));
       setConfirmations([]);
     } finally {
       setLoading(false);
@@ -61,8 +65,7 @@ export default function ConfirmationsPage() {
     const defaultDate = tmr.toISOString().split("T")[0];
     setTargetDate(defaultDate);
     fetchPreview(defaultDate);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [fetchPreview]);
 
   useEffect(() => {
     // Poll every 5s to see dispatch status updates ONLY if triggering
@@ -70,7 +73,7 @@ export default function ConfirmationsPage() {
       if (targetDate && triggering) fetchPreview(targetDate);
     }, 5000);
     return () => clearInterval(id);
-  }, [targetDate, triggering]);
+  }, [fetchPreview, targetDate, triggering]);
 
   const handleStart = async () => {
     setTriggering(true);
@@ -88,9 +91,9 @@ export default function ConfirmationsPage() {
       success(`Disparo iniciado! ${data.total_schedules_found} agendamento(s) encontrado(s).`);
       // Aguarda um pouco e busca o preview atualizado
       setTimeout(() => fetchPreview(targetDate), 2000);
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error("[TRIGGER] Erro:", e);
-      error(e.message || "Erro de conexão ao iniciar disparo");
+      error(getErrorMessage(e, "Erro de conexão ao iniciar disparo"));
     } finally {
       setTriggering(false);
     }
