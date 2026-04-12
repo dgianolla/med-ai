@@ -1,7 +1,7 @@
-import { SessionBoard } from "@/components/SessionBoard";
+import { LeadsBoard } from "@/components/LeadsBoard";
 import Link from "next/link";
 
-export default function Home() {
+export default function LeadsPage() {
   return (
     <main className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Header */}
@@ -15,8 +15,8 @@ export default function Home() {
           </div>
 
           <nav className="flex gap-4 pt-1 flex-1 px-8">
-            <Link href="/" className="text-sm font-medium text-green-600 dark:text-green-500 border-b-2 border-green-600 dark:border-green-500 py-4">Atendimentos</Link>
-            <Link href="/leads" className="text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors py-4">Leads</Link>
+            <Link href="/" className="text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors py-4">Atendimentos</Link>
+            <Link href="/leads" className="text-sm font-medium text-green-600 dark:text-green-500 border-b-2 border-green-600 dark:border-green-500 py-4">Leads</Link>
             <Link href="/confirmacoes" className="text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors py-4">Confirmações</Link>
           </nav>
 
@@ -29,7 +29,7 @@ export default function Home() {
 
       {/* Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <SessionBoard />
+        <LeadsBoard />
       </div>
     </main>
   );

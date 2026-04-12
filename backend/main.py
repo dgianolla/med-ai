@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from routes.webhook import router as webhook_router
 from routes.dashboard import router as dashboard_router
 from routes.schedules import router as schedules_router
+from routes.leads import router as leads_router
 
 logging.basicConfig(
     level=logging.INFO,
@@ -26,6 +27,7 @@ app.add_middleware(
 app.include_router(webhook_router)
 app.include_router(dashboard_router)
 app.include_router(schedules_router)
+app.include_router(leads_router)
 
 
 @app.get("/")
