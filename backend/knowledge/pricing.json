@@ -41,6 +41,13 @@
       "esp_id": 18,
       "price_particular": 350.00,
       "price_note": "Valor de referência — consultar equipe de atendimento para valores atualizados"
+    },
+    {
+      "specialty": "Psiquiatria",
+      "professional": "Dra. Rebeca Espelho Storch",
+      "esp_id": 49,
+      "price_particular": 400.00,
+      "price_note": "Valor de referência — consultar equipe de atendimento para valores atualizados"
     }
   ],
 

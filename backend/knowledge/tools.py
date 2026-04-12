@@ -11,9 +11,11 @@ TOOLS = [
         "description": (
             "Consulta informações sobre a clínica: preços de combos, protocolos de emagrecimento, "
             "horários de funcionamento, endereço, formas de pagamento, convênios aceitos, "
-            "política de retorno, documentos necessários, exames disponíveis e profissionais."
+            "política de retorno, documentos necessários, exames disponíveis, profissionais "
+            "e canetas injetáveis (Ozempic, Mounjaro)."
             "\nUse quando o paciente perguntar sobre preços, horários, localização, convênios, "
-            "formas de pagamento, ou qualquer informação geral sobre a clínica."
+            "formas de pagamento, protocolos de emagrecimento, canetas injetáveis, "
+            "ou qualquer informação geral sobre a clínica."
         ),
         "input_schema": {
             "type": "object",

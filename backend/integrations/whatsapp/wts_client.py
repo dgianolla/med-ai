@@ -13,6 +13,7 @@ AGENT_TAG_NAMES = {
     "commercial":   "Comercial",
     "return":       "Retorno",
     "cancellation": "Cancelamento",
+    "weight_loss":  "Canetas Emagrecimento",
 }
 
 

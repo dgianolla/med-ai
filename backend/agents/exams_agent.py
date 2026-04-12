@@ -69,7 +69,8 @@ class ExamsAgent(BaseAgent):
 
         response = await client.messages.create(
             model=self.model,
-            max_tokens=1024,
+            max_tokens=384,
+            temperature=0.3,
             system=system,
             messages=messages,
         )

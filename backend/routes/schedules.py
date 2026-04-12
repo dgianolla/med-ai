@@ -128,25 +128,37 @@ async def get_confirmations(date: str):
 async def preview_schedules(date: str):
     """Retorna todos os agendamentos da API mesclados com o status no Supabase."""
     try:
+        logger.info("[PREVIEW] Buscando agenda para date=%s", date)
+
         # Busca da API AppHealth
         schedules = await get_agenda(date, date)
-        
+        logger.info("[PREVIEW] AppHealth retornou %d agendamentos", len(schedules))
+
+        # Debug: log da estrutura do primeiro agendamento (se existir)
+        if schedules:
+            logger.info("[PREVIEW] Exemplo de agendamento: %s", str(schedules[0])[:500])
+        else:
+            logger.warning("[PREVIEW] Nenhum agendamento retornado pela AppHealth para %s", date)
+
         # Busca status atuais no Supabase
         db = await get_supabase()
         status_map = {}
         try:
             db_res = await db.table("schedule_confirmations").select("appointment_id, status").eq("appointment_date", date).execute()
             status_map = {item["appointment_id"]: item["status"] for item in (db_res.data or [])}
+            logger.info("[PREVIEW] Supabase retornou %d status existentes", len(status_map))
         except Exception as e:
-            logger.warning(f"Erro ao buscar status no BD (tabela pode nao existir): {e}")
-        
+            logger.warning(f"[PREVIEW] Erro ao buscar status no BD (tabela pode nao existir): {e}")
+
         preview = []
+        skipped_no_phone = 0
         for sched in schedules:
             app_id = sched.get("id")
             phone = sched.get("telefonePrincipal", "")
             if not phone:
+                skipped_no_phone += 1
                 continue # Pula se nao tiver telefone
-                
+
             preview.append({
                 "appointment_id": app_id,
                 "patient_name": sched.get("nome", "Paciente"),
@@ -155,9 +167,15 @@ async def preview_schedules(date: str):
                 "professional_name": (sched.get("profissionalSaude") or {}).get("nome", ""),
                 "status": status_map.get(app_id, "not_started") # not_started significa que nao ta na fila ainda
             })
-            
+
         preview.sort(key=lambda x: x.get("appointment_time", ""))
+
+        logger.info(
+            "[PREVIEW] Resultado: %d agendamentos com telefone, %d pulados sem telefone",
+            len(preview), skipped_no_phone,
+        )
+
         return {"schedules": preview}
     except Exception as e:
-        logger.error(f"Erro no preview de agenda: {e}")
-        raise HTTPException(status_code=500, detail="Erro ao carregar preview da agenda")
+        logger.error(f"[PREVIEW] Erro ao carregar preview da agenda: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Erro ao carregar preview da agenda: {str(e)}")

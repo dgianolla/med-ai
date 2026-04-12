@@ -1,0 +1,85 @@
+{
+  "canetas_injetaveis": [
+    {
+      "id": "ozempic",
+      "name": "Ozempic",
+      "active_ingredient": "Semaglutida",
+      "type": "Caneta injetável",
+      "application": "Subcutânea, semanal",
+      "protocols": [
+        {
+          "id": "ozempic_mensal",
+          "name": "Ozempic Mensal",
+          "duration_days": 30,
+          "available": false,
+          "note": "Só fechamos protocolo de 90 dias"
+        },
+        {
+          "id": "ozempic_protocolo_90",
+          "name": "Protocolo Ozempic Completo (90 dias)",
+          "duration_days": 90,
+          "price": 3300.00,
+          "available": true,
+          "includes": [
+            "Aplicação semanal da dose",
+            "Reposição de vitaminas (quando necessário)",
+            "Reposição hormonal (quando necessário)",
+            "Consulta com endocrinologista a cada 15 dias para ajuste da dose e acompanhamento"
+          ]
+        }
+      ],
+      "requirements": [
+        "Consulta médica prévia obrigatória",
+        "Avaliação individualizada",
+        "Acompanhamento profissional contínuo",
+        "Prescrição médica"
+      ]
+    },
+    {
+      "id": "mounjaro",
+      "name": "Mounjaro",
+      "active_ingredient": "Tirzepatida",
+      "type": "Caneta injetável",
+      "application": "Subcutânea, semanal",
+      "protocols": [
+        {
+          "id": "mounjaro_mensal",
+          "name": "Mounjaro Mensal",
+          "duration_days": 30,
+          "price": 1800.00,
+          "available": true
+        },
+        {
+          "id": "mounjaro_protocolo_90",
+          "name": "Protocolo Mounjaro Completo (90 dias)",
+          "duration_days": 90,
+          "price": 5500.00,
+          "available": true,
+          "includes": [
+            "Aplicação semanal da dose",
+            "Reposição de vitaminas (quando necessário)",
+            "Reposição hormonal (quando necessário)",
+            "Consulta com endocrinologista a cada 15 dias para ajuste da dose e acompanhamento"
+          ]
+        }
+      ],
+      "requirements": [
+        "Consulta médica prévia obrigatória",
+        "Avaliação individualizada",
+        "Acompanhamento profissional contínuo",
+        "Prescrição médica"
+      ]
+    }
+  ],
+
+  "informacoes_gerais": {
+    "titulo": "Informações Importantes sobre Protocolos de Canetas Injetáveis",
+    "exigencias": [
+      "Consulta médica prévia obrigatória",
+      "Avaliação individualizada",
+      "Acompanhamento profissional contínuo",
+      "Prescrição médica"
+    ],
+    "nota": "Ambos os protocolos (Ozempic e Mounjaro) exigem os requisitos acima."
+  }
+}

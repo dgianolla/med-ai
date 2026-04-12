@@ -303,6 +303,64 @@ class KnowledgeService:
                     results.append(f"• {rule}")
 
         # ============================================================
+        # CANETAS INJETÁVEIS / PROTOCOLOS DE EMAGRECIMENTO
+        # ============================================================
+        if any(w in query_lower for w in ["caneta", "injetável", "injetavel", "ozempic", "mounjaro", "semaglutida", "tirzepatida", "aplicação", "appli"]):
+            pens_data = self._cache.get("injectable_pens", {})
+            canetas = pens_data.get("canetas_injetaveis", [])
+
+            # Tenta encontrar caneta específica
+            target_pen = None
+            for c in canetas:
+                if c["id"] in query_lower or c["name"].lower() in query_lower:
+                    target_pen = c
+                    break
+
+            if target_pen:
+                pen_text = f"**{target_pen['name']}** ({target_pen.get('active_ingredient', '')})\n"
+                pen_text += f"**Tipo:** {target_pen['type']}\n"
+                pen_text += f"**Aplicação:** {target_pen['application']}\n\n"
+
+                protocols = target_pen.get("protocols", [])
+                if protocols:
+                    pen_text += "**Protocolos disponíveis:**\n\n"
+                    for p in protocols:
+                        if p.get("available", True):
+                            pen_text += f"• **{p['name']}**\n"
+                            if "price" in p:
+                                pen_text += f"  Valor: R$ {p['price']:.2f}\n"
+                            if "duration_days" in p:
+                                pen_text += f"  Duração: {p['duration_days']} dias\n"
+                            if p.get("includes"):
+                                pen_text += f"  Inclui:\n"
+                                for item in p["includes"]:
+                                    pen_text += f"  - {item}\n"
+                            if p.get("note"):
+                                pen_text += f"  ⚠️ {p['note']}\n"
+                            pen_text += "\n"
+                        else:
+                            pen_text += f"• **{p['name']}** — {p.get('note', 'Não disponível individualmente')}\n\n"
+
+                requirements = target_pen.get("requirements", [])
+                if requirements:
+                    pen_text += "**Requisitos:**\n"
+                    for r in requirements:
+                        pen_text += f"• {r}\n"
+
+                results.append(pen_text)
+            else:
+                # Lista todas as canetas
+                results.append("**Canetas Injetáveis disponíveis:**")
+                for c in canetas:
+                    results.append(f"• **{c['name']}** ({c.get('active_ingredient', '')})")
+
+                info = pens_data.get("informacoes_gerais", {})
+                if info.get("exigencias"):
+                    results.append(f"\n**Exigências para ambos os protocolos:**")
+                    for e in info["exigencias"]:
+                        results.append(f"• {e}")
+
+        # ============================================================
         # CONVÊNIOS (expandido)
         # ============================================================
         if any(w in query_lower for w in ["convênio", "convenio", "plano", "particular", "cobertura"]):

@@ -50,7 +50,8 @@ class ReturnAgent(BaseAgent):
         for _ in range(10):
             response = await client.messages.create(
                 model=self.model,
-                max_tokens=1024,
+                max_tokens=384,
+                temperature=0.7,
                 system=system,
                 tools=ALL_TOOLS,
                 messages=messages,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useToast } from "@/components/Toast";
 import { TableSkeleton } from "@/components/Skeletons";
@@ -24,27 +24,39 @@ export default function ConfirmationsPage() {
   const [loading, setLoading] = useState(false);
   const [triggering, setTriggering] = useState(false);
 
-  // Initialize with tomorrow for default
-  useEffect(() => {
-    const tmr = new Date();
-    tmr.setDate(tmr.getDate() + 1);
-    setTargetDate(tmr.toISOString().split("T")[0]);
-  }, []);
-
-  const fetchPreview = async (date: string) => {
+  const fetchPreview = useCallback(async (date: string) => {
     if (!date) return;
     setLoading(true);
     try {
       const res = await fetch(`${API_URL}/api/schedules/preview?date=${date}`);
+      if (!res.ok) {
+        const errData = await res.json().catch(() => null);
+        throw new Error(errData?.detail || `Erro ${res.status}: falha ao buscar agenda`);
+      }
       const data = await res.json();
-      setConfirmations(data.schedules || []);
-    } catch (e) {
-      console.error(e);
-      error("Erro ao carregar agenda");
+      const schedules = data.schedules || [];
+      setConfirmations(schedules);
+      if (schedules.length === 0) {
+        info("Nenhum agendamento encontrado para esta data.");
+      }
+    } catch (e: any) {
+      console.error("[PREVIEW] Erro:", e);
+      error(e.message || "Erro ao carregar agenda");
+      setConfirmations([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, [error, info]);
+
+  // Initialize with tomorrow for default
+  useEffect(() => {
+    const tmr = new Date();
+    tmr.setDate(tmr.getDate() + 1);
+    const defaultDate = tmr.toISOString().split("T")[0];
+    setTargetDate(defaultDate);
+    // Auto-fetch a agenda quando a página carrega
+    fetchPreview(defaultDate);
+  }, [fetchPreview]);
 
   useEffect(() => {
     // Poll every 5s to see dispatch status updates ONLY if triggering
@@ -62,15 +74,17 @@ export default function ConfirmationsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ delay_seconds: delay, target_date: targetDate }),
       });
-      if (res.ok) {
-        success("Disparo de confirmações iniciado com sucesso!");
-        fetchPreview(targetDate);
-      } else {
-        error("Falha ao iniciar disparo. Tente novamente.");
+      if (!res.ok) {
+        const errData = await res.json().catch(() => null);
+        throw new Error(errData?.detail || "Falha ao iniciar disparo");
       }
-    } catch (e) {
-      console.error(e);
-      error("Erro de conexão ao iniciar disparo");
+      const data = await res.json();
+      success(`Disparo iniciado! ${data.total_schedules_found} agendamento(s) encontrado(s).`);
+      // Aguarda um pouco e busca o preview atualizado
+      setTimeout(() => fetchPreview(targetDate), 2000);
+    } catch (e: any) {
+      console.error("[TRIGGER] Erro:", e);
+      error(e.message || "Erro de conexão ao iniciar disparo");
     } finally {
       setTriggering(false);
     }
@@ -116,6 +130,8 @@ export default function ConfirmationsPage() {
 
             <nav className="flex gap-4 pt-1">
               <Link href="/" className="text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors py-4">Atendimentos</Link>
+              <Link href="/leads" className="text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors py-4">Leads</Link>
+              <Link href="/leads/encaixe" className="text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors py-4">Encaixe</Link>
               <Link href="/confirmacoes" className="text-sm font-medium text-green-600 dark:text-green-500 border-b-2 border-green-600 dark:border-green-500 py-4">Confirmações</Link>
             </nav>
           </div>
@@ -182,10 +198,10 @@ export default function ConfirmationsPage() {
               <TableSkeleton rows={5} />
             ) : (
               <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                {confirmations.length === 0 && (
+                {confirmations.length === 0 && !loading && (
                   <tr>
                     <td colSpan={4} className="px-6 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
-                      Nenhum disparo registrado para esta data ainda.
+                      Nenhum agendamento encontrado para esta data.
                     </td>
                   </tr>
                 )}

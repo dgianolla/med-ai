@@ -53,6 +53,24 @@
       "preparation": "Jejum de 8-12h para exames laboratoriais. Evitar atividade física intensa 24h antes. Trazer exames anteriores."
     },
     {
+      "name": "Psiquiatria",
+      "slug": "psiquiatria",
+      "esp_id": 49,
+      "aliases": ["psiquiatria", "psiquiatra", "mental", "ansiedade", "depressão", "depressao", "emoção", "panico", "pânico", "insônia", "insonia", "bipolar", "tdah"],
+      "description": "Diagnóstico e tratamento de transtornos mentais e emocionais, incluindo prescrição de medicamentos. Atendida pela Dra. Rebeca Espelho Storch.",
+      "when_to_seek": [
+        "Ansiedade persistente ou crises de pânico",
+        "Depressão ou tristeza prolongada",
+        "Insônia ou distúrbios do sono",
+        "Transtorno bipolar",
+        "TDAH (déficit de atenção e hiperatividade)",
+        "Dependência química ou emocional",
+        "Transtornos alimentares"
+      ],
+      "exams_commonly_ordered": ["TSH", "T4 livre", "Hemograma", "Vitamina B12", "Vitamina D", "Glicemia"],
+      "preparation": "Traga lista de medicamentos em uso (incluindo fitoterápicos) e exames recentes. Não suspenda medicamentos sem orientação."
+    },
+    {
       "name": "Ginecologia e Obstetrícia",
       "slug": "ginecologia",
       "esp_id": 24,

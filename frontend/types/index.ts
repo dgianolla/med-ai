@@ -53,3 +53,34 @@ export interface LeadsSummary {
   disqualified: number;
   by_specialty: Record<string, { qualified: number; disqualified: number }>;
 }
+
+export type PriorityLeadStatus = "aguardando" | "em_contato" | "agendado" | "descartado";
+
+export interface PriorityLead {
+  id: string;
+  patient_id: string | null;
+  session_id: string | null;
+  patient_name: string | null;
+  patient_phone: string;
+  interest: string;
+  caneta_preferida: string | null;
+  periodo_preferido: string | null;
+  professional_id: number | null;
+  professional_name: string | null;
+  notes: string | null;
+  status: PriorityLeadStatus;
+  handled_by: string | null;
+  handled_at: string | null;
+  appointment_id: string | null;
+  created_at: string;
+  updated_at: string;
+  hours_waiting: number | null;
+}
+
+export interface PriorityLeadsSummary {
+  aguardando: number;
+  em_contato: number;
+  agendado: number;
+  descartado: number;
+  total: number;
+}

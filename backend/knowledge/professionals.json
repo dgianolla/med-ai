@@ -35,6 +35,13 @@
       "specialties": [
         {"name": "Ginecologia sem Obstetrícia", "esp_id": 58}
       ]
+    },
+    {
+      "id": 35270,
+      "name": "Dra. Rebeca Espelho Storch",
+      "specialties": [
+        {"name": "Psiquiatria", "esp_id": 49}
+      ]
     }
   ],
 

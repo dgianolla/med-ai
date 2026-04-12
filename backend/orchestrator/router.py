@@ -18,7 +18,14 @@ _PRICE_PATTERNS = [
     r"\b(aceita\s*(funserv|amhemed|incor|ossel|dental\s*med|medprev|particular))",
     r"\b(desconto|desconto\s*a\s*vista|a\s*vista|dinheiro)",
     r"\b(combo|pacote|promoção|promocao|oferta)",
-    r"\b(ozempic|mounjaro|emagrecimento|protocolo)",
+]
+
+# Padrões que indicam interesse no protocolo de canetas injetáveis (Ozempic / Mounjaro)
+_WEIGHT_LOSS_PATTERNS = [
+    r"\b(ozempic|mounjaro|semaglutida|tirzepatida|wegovy|saxenda)",
+    r"\b(canetas?\s*(injet|emagre)|caneta\s*do\s*emagrecimento)",
+    r"\b(emagrec\w*|perder\s*peso|protocolo\s*(de\s*)?emagrecimento)",
+    r"\b(injet[aá]vel\s*(de\s*)?emagrec)",
 ]
 
 # Padrões que indicam que a pergunta é sobre EXAMES
@@ -67,12 +74,17 @@ def classify_intent(text: str) -> str | None:
 
     # Verifica cada categoria por score de matches
     scores = {
+        "weight_loss": 0,
         "commercial": 0,
         "exams": 0,
         "return": 0,
         "cancellation": 0,
         "scheduling": 0,
     }
+
+    for pattern in _WEIGHT_LOSS_PATTERNS:
+        if re.search(pattern, text_lower):
+            scores["weight_loss"] += 1
 
     for pattern in _PRICE_PATTERNS:
         if re.search(pattern, text_lower):
@@ -93,6 +105,14 @@ def classify_intent(text: str) -> str | None:
     for pattern in _SCHEDULING_PATTERNS:
         if re.search(pattern, text_lower):
             scores["scheduling"] += 1
+
+    # weight_loss tem prioridade absoluta — lead de ticket alto, fluxo dedicado
+    if scores["weight_loss"] > 0:
+        logger.debug(
+            "Router classification | text=%s | scores=%s | best=weight_loss (priority)",
+            text_lower[:50], scores,
+        )
+        return "weight_loss"
 
     # Pega o maior score (mínimo 1 match)
     best_agent = max(scores, key=scores.get)

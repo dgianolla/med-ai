@@ -12,13 +12,14 @@ AUTH_TOKEN = "laVZIRHpJt1K9ygtRcDQfH7L1QmjHPN9qZ7l87Qp9PKLR"
 PROFESSIONALS = {
     "clinica_geral":        [{"id": 29116, "nome": "Dr. Ricardo Dilda",      "esp_id": 168}],
     "cardiologia":          [{"id": 29116, "nome": "Dr. Ricardo Dilda",      "esp_id": 6}],
+    "psiquiatria":          [{"id": 35270, "nome": "Dra. Rebeca Espelho Storch", "esp_id": 49}],
     "endocrinologia":       [{"id": 30319, "nome": "Dr. Arthur Wagner",      "esp_id": 19}],
     "ginecologia":          [
         {"id": 30320, "nome": "Dra. Silmara Capeleto", "esp_id": 24},
         {"id": 32874, "nome": "Dra. Paolla Cappelari", "esp_id": 58},
     ],
     "dermatologia":         [{"id": 31644, "nome": "Dra. Ellen Santini",     "esp_id": 18}],
-    # STANDBY: Otorrinolaringologia (esp_id: 44) — sem médico mapeado ainda
+    # STANDBY: Otorrinolaringologia (esp_id: 44) — Dra. Camila Maria (ID 34374) disponível na API
 }
 
 # Convênios
@@ -150,6 +151,12 @@ def get_professionals_for_specialty(specialty: str) -> list[dict]:
         "metabolismo": "endocrinologia",
         "hormonio": "endocrinologia",
         "hormonal": "endocrinologia",
+        "psiquiatra": "psiquiatria",
+        "psiquiatria": "psiquiatria",
+        "mental": "psiquiatria",
+        "ansiedade": "psiquiatria",
+        "depressao": "psiquiatria",
+        "depressão": "psiquiatria",
         "clinico": "clinica_geral",
         "clínico": "clinica_geral",
         "geral": "clinica_geral",

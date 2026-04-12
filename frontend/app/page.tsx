@@ -17,6 +17,7 @@ export default function Home() {
           <nav className="flex gap-4 pt-1 flex-1 px-8">
             <Link href="/" className="text-sm font-medium text-green-600 dark:text-green-500 border-b-2 border-green-600 dark:border-green-500 py-4">Atendimentos</Link>
             <Link href="/leads" className="text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors py-4">Leads</Link>
+            <Link href="/leads/encaixe" className="text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors py-4">Encaixe</Link>
             <Link href="/confirmacoes" className="text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors py-4">Confirmações</Link>
           </nav>
 

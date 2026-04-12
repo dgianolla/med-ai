@@ -6,7 +6,7 @@ from datetime import datetime
 # ============================================================
 # Tipos de agentes
 # ============================================================
-AgentType = Literal["triage", "scheduling", "exams", "commercial", "return", "cancellation"]
+AgentType = Literal["triage", "scheduling", "exams", "commercial", "return", "cancellation", "weight_loss"]
 
 # ============================================================
 # Payload de handoff entre agentes
@@ -18,6 +18,7 @@ class HandoffPayload(BaseModel):
         "to_commercial",
         "to_return",
         "to_triage",
+        "to_weight_loss",
     ]
     patient_name: Optional[str] = None
     reason: Optional[str] = None
