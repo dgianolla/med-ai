@@ -4,6 +4,7 @@ import re
 from typing import Any
 
 from anthropic import AsyncAnthropic
+from postgrest.exceptions import APIError
 
 from config import get_settings
 from db.client import get_supabase
@@ -84,15 +85,24 @@ async def _find_active_confirmation(message: IncomingMessage) -> dict[str, Any] 
         if not value:
             continue
 
-        res = await (
-            db.table("schedule_confirmations")
-            .select("id, session_id, patient_phone, status, appointment_id")
-            .eq(column, value)
-            .in_("status", ["pending", "sent"])
-            .order("created_at", desc=True)
-            .limit(1)
-            .execute()
-        )
+        try:
+            res = await (
+                db.table("schedule_confirmations")
+                .select("id, session_id, patient_phone, status, appointment_id")
+                .eq(column, value)
+                .in_("status", ["pending", "sent"])
+                .order("created_at", desc=True)
+                .limit(1)
+                .execute()
+            )
+        except APIError as e:
+            if e.message == "Could not find the table 'public.schedule_confirmations' in the schema cache":
+                logger.error(
+                    "Tabela schedule_confirmations ausente no banco/cache do PostgREST. "
+                    "O fluxo de confirmação será ignorado até a migration ser aplicada."
+                )
+                return None
+            raise
 
         if res.data:
             return res.data[0]

@@ -25,7 +25,12 @@ async def _process_message(body: dict):
         incoming.text,
     )
 
-    confirmation_result = await handle_confirmation(incoming)
+    try:
+        confirmation_result = await handle_confirmation(incoming)
+    except Exception as e:
+        logger.error("Erro no agente de confirmação; seguindo para orquestração normal: %s", e, exc_info=True)
+        confirmation_result = None
+
     if confirmation_result:
         logger.info(
             "Mensagem tratada pelo agente de confirmação | phone=%s | intent=%s | status=%s",
