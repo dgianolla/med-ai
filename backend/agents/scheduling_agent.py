@@ -18,6 +18,7 @@ from integrations.scheduling_api import (
     get_professionals_for_specialty,
     CONVENIOS,
 )
+from services.priority_leads import create_priority_lead
 
 logger = logging.getLogger(__name__)
 
@@ -121,7 +122,7 @@ class SchedulingAgent(BaseAgent):
                     if block.type != "tool_use":
                         continue
 
-                    result = await self._execute_tool(block.name, block.input)
+                    result = await self._execute_tool(block.name, block.input, ctx)
                     tool_results.append({
                         "type": "tool_result",
                         "tool_use_id": block.id,
@@ -177,7 +178,7 @@ class SchedulingAgent(BaseAgent):
             reply="Desculpe, tive um problema ao processar sua solicitação. Por favor, tente novamente.",
         )
 
-    async def _execute_tool(self, tool_name: str, tool_input: dict) -> dict:
+    async def _execute_tool(self, tool_name: str, tool_input: dict, ctx: SessionContext) -> dict:
         """Executa a tool solicitada pelo Claude e retorna o resultado."""
         try:
             if tool_name == "get_clinic_info":
@@ -267,8 +268,72 @@ class SchedulingAgent(BaseAgent):
                     patient_phone=tool_input["patient_phone"],
                     convenio_id=convenio_id,
                 )
+
+                await self._maybe_create_priority_card(
+                    ctx=ctx,
+                    tool_input=tool_input,
+                    professional=prof,
+                    appointment=result,
+                )
                 return {"success": True, "agendamento": result}
 
         except Exception as e:
             logger.error("Erro na tool %s: %s", tool_name, e)
             return {"error": str(e)}
+
+    async def _maybe_create_priority_card(
+        self,
+        *,
+        ctx: SessionContext,
+        tool_input: dict,
+        professional: dict,
+        appointment: dict,
+    ) -> None:
+        convenio = (tool_input.get("convenio") or "particular").lower()
+        context = ctx.handoff_payload.context if ctx.handoff_payload and ctx.handoff_payload.context else {}
+        lead_source = context.get("lead_source") or (ctx.handoff_payload.type.replace("to_", "") if ctx.handoff_payload else None)
+        campaign_name = context.get("campaign_name")
+        interest = (
+            context.get("interest")
+            or (ctx.patient_metadata or {}).get("interest")
+            or ("canetas" if lead_source == "weight_loss" else "consulta")
+        )
+
+        should_create = (
+            lead_source in {"weight_loss", "campaign"}
+            or convenio == "particular"
+        )
+        if not should_create:
+            return
+
+        notes_parts = [
+            f"Agendado para {tool_input['date']} às {tool_input['hora_inicio'][:5]}",
+            f"Convenio: {convenio}",
+        ]
+        if ctx.handoff_payload and ctx.handoff_payload.reason:
+            notes_parts.append(f"Origem do handoff: {ctx.handoff_payload.reason}")
+        if campaign_name:
+            notes_parts.append(f"Campanha: {campaign_name}")
+
+        await create_priority_lead(
+            patient_id=ctx.patient_id,
+            session_id=ctx.session_id,
+            patient_name=tool_input.get("patient_name"),
+            patient_phone=tool_input.get("patient_phone") or ctx.patient_phone,
+            interest=interest,
+            convenio=convenio,
+            specialty=tool_input.get("specialty"),
+            source_agent=lead_source or "scheduling",
+            campaign_name=campaign_name,
+            professional_id=professional.get("id"),
+            professional_name=professional.get("nome"),
+            notes=" | ".join(notes_parts),
+            appointment_id=str(appointment.get("id")) if appointment.get("id") else None,
+            conversation_history=ctx.conversation_history,
+            metadata={
+                "scheduled_date": tool_input.get("date"),
+                "scheduled_time": tool_input.get("hora_inicio"),
+                "lead_source": lead_source,
+                "from_campaign": bool(campaign_name),
+            },
+        )

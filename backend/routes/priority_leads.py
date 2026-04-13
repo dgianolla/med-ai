@@ -1,7 +1,8 @@
 """
-Endpoints da fila de encaixe prioritário (canetas / endócrino).
+Endpoints da fila de atenção comercial prioritária.
 
-Lista, atualiza status e marca como agendado/descartado pela equipe comercial.
+Lista e atualiza cards operacionais gerados pelo backend para canetas,
+campanhas e pacientes particulares/alto ticket.
 """
 
 import logging
@@ -30,7 +31,7 @@ class UpdatePriorityLead(BaseModel):
 async def list_priority_leads(
     status: Optional[str] = Query(None, description="aguardando|em_contato|agendado|descartado"),
 ):
-    """Lista leads de encaixe prioritário, mais antigos primeiro (FIFO)."""
+    """Lista cards prioritários ordenando por score e depois antiguidade."""
     try:
         db = await get_supabase()
         query = db.table("priority_leads").select("*")
@@ -39,8 +40,14 @@ async def list_priority_leads(
                 raise HTTPException(status_code=400, detail=f"Status inválido. Use: {', '.join(VALID_STATUSES)}")
             query = query.eq("status", status)
 
-        result = await query.order("created_at", desc=False).execute()
+        result = await query.execute()
         leads = result.data or []
+        leads.sort(
+            key=lambda lead: (
+                -(lead.get("priority_score") or 0),
+                lead.get("created_at") or "",
+            )
+        )
 
         # Calcula tempo em fila pra cada lead aguardando
         now = datetime.now(timezone.utc)
@@ -55,9 +62,9 @@ async def list_priority_leads(
         summary = {
             "aguardando": sum(1 for l in leads if l["status"] == "aguardando"),
             "em_contato": sum(1 for l in leads if l["status"] == "em_contato"),
-            "agendado":   sum(1 for l in leads if l["status"] == "agendado"),
+            "agendado": sum(1 for l in leads if l["status"] == "agendado"),
             "descartado": sum(1 for l in leads if l["status"] == "descartado"),
-            "total":      len(leads),
+            "total": len(leads),
         }
 
         return {"leads": leads, "summary": summary}

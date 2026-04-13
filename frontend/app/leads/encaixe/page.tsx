@@ -29,9 +29,9 @@ export default function PriorityLeadsPage() {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <div className="mb-6">
-          <h1 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Encaixe prioritário</h1>
+          <h1 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Atencao comercial</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            Leads de alto ticket aguardando contato da equipe comercial. Mais antigos primeiro.
+            Cards operacionais para pacientes particulares, campanhas e leads de alto ticket que merecem acompanhamento humano.
           </p>
         </div>
         <PriorityLeadsBoard />

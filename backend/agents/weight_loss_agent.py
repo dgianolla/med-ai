@@ -206,8 +206,18 @@ class WeightLossAgent(BaseAgent):
                         session_id=ctx.session_id,
                         patient_name=(ctx.patient_metadata or {}).get("name") or patient_name,
                         patient_phone=ctx.patient_phone,
+                        interest="canetas",
+                        specialty="Endocrinologia e Metabologia",
+                        source_agent="weight_loss",
                         caneta_preferida=session_updates.get("caneta_interesse"),
+                        professional_id=30319,
+                        professional_name="Dr. Arthur Wagner",
                         notes=" | ".join(notes_parts) if notes_parts else None,
+                        conversation_history=ctx.conversation_history,
+                        metadata={
+                            "ready_for_consult": "encaixe",
+                            "objection": session_updates.get("objection"),
+                        },
                     )
 
                     # Substitui o reply do LLM pela mensagem oficial — não

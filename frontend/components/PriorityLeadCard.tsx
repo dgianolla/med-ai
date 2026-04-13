@@ -40,6 +40,13 @@ function canetaLabel(c: string | null): string {
   return c;
 }
 
+function priorityLabel(priorityType: string): string {
+  if (priorityType === "high_ticket") return "Alto ticket";
+  if (priorityType === "campaign_hot_lead") return "Campanha";
+  if (priorityType === "private_patient") return "Particular";
+  return "Atencao";
+}
+
 export function PriorityLeadCard({
   lead,
   onUpdated,
@@ -86,11 +93,20 @@ export function PriorityLeadCard({
         </div>
 
         {/* Caneta de interesse */}
-        <div className="mt-3 flex items-center gap-2">
-          <span className="text-xs text-gray-500 dark:text-gray-400">💉</span>
-          <span className="text-sm text-gray-700 dark:text-gray-300 font-medium">
-            {canetaLabel(lead.caneta_preferida)}
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400">
+            {priorityLabel(lead.priority_type)}
           </span>
+          {lead.specialty && (
+            <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
+              {lead.specialty}
+            </span>
+          )}
+          {lead.caneta_preferida && (
+            <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-400">
+              {canetaLabel(lead.caneta_preferida)}
+            </span>
+          )}
         </div>
 
         {/* Tempo aguardando */}
@@ -104,6 +120,25 @@ export function PriorityLeadCard({
             {lead.status === "aguardando" ? `Aguardando há ${formatWaiting(lead.hours_waiting)}` : `Criado há ${formatWaiting(lead.hours_waiting)}`}
           </span>
         </div>
+
+        {lead.summary && (
+          <div className="mt-3 rounded-lg bg-gray-50 dark:bg-gray-900/50 p-3">
+            <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap">
+              {lead.summary}
+            </p>
+          </div>
+        )}
+
+        {lead.action_label && (
+          <div className="mt-3">
+            <p className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
+              Acao sugerida
+            </p>
+            <p className="mt-1 text-sm text-gray-700 dark:text-gray-300">
+              {lead.action_label}
+            </p>
+          </div>
+        )}
 
         {/* Notes */}
         {lead.notes && (
@@ -146,6 +181,14 @@ export function PriorityLeadCard({
         {error && (
           <p className="mt-2 text-xs text-red-600 dark:text-red-400">{error}</p>
         )}
+
+        <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
+          {lead.convenio && <span>Convenio: {lead.convenio}</span>}
+          {lead.professional_name && <span>Prof.: {lead.professional_name}</span>}
+          {lead.campaign_name && <span>Campanha: {lead.campaign_name}</span>}
+          {lead.source_agent && <span>Origem: {lead.source_agent}</span>}
+          <span>Score: {lead.priority_score}</span>
+        </div>
       </div>
     </div>
   );
