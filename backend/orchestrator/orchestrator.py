@@ -295,6 +295,9 @@ async def _run_agent(agent_id: str, ctx: SessionContext) -> AgentResult:
     elif agent_id == "commercial":
         from agents.commercial_agent import CommercialAgent
         result = await CommercialAgent().run(ctx)
+    elif agent_id == "campaign":
+        from agents.campaign_agent import CampaignAgent
+        result = await CampaignAgent().run(ctx)
     elif agent_id == "return":
         from agents.return_agent import ReturnAgent
         result = await ReturnAgent().run(ctx)

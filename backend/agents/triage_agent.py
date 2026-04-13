@@ -3,6 +3,7 @@ import logging
 from anthropic import AsyncAnthropic
 
 from config import get_settings
+from campaigns.service import get_campaign_service
 from db.models import SessionContext, AgentResult, HandoffPayload
 from agents.base_agent import BaseAgent
 from agents.prompt_loader import load_prompt
@@ -33,11 +34,16 @@ class TriageAgent(BaseAgent):
         if ctx.exam_content:
             content = f"[Paciente enviou exame]\n{ctx.exam_content}"
 
+        campaign_index = get_campaign_service().index_text()
+        system = load_prompt("triage")
+        if campaign_index:
+            system += f"\n\n{campaign_index}\n\nSe rotear para campanha, responda com JSON no formato {{\"target\":\"campaign\",\"campaign_name\":\"nome exato\",\"reason\":\"motivo breve\"}}."
+
         try:
             response = await client.messages.create(
                 model=self.model,
                 max_tokens=100,
-                system=load_prompt("triage"),
+                system=system,
                 messages=[{"role": "user", "content": content}],
             )
 
@@ -51,10 +57,19 @@ class TriageAgent(BaseAgent):
             data = json.loads(raw)
             target = data.get("target", "scheduling")
             reason = data.get("reason", "")
+            campaign_name = data.get("campaign_name")
+
+            if target == "campaign" and not campaign_name:
+                logger.warning(
+                    "[TRIAGE] target=campaign sem campaign_name | patient=%s | fallback=commercial",
+                    patient_name,
+                )
+                target = "commercial"
+                reason = reason or "Lead veio de campanha, mas a campanha não foi identificada com segurança"
 
             logger.info(
-                "[TRIAGE] Decisão | patient=%s | target=%s | reason=%s",
-                patient_name, target, reason,
+                "[TRIAGE] Decisão | patient=%s | target=%s | campaign=%s | reason=%s",
+                patient_name, target, campaign_name, reason,
             )
 
             return AgentResult(
@@ -65,6 +80,7 @@ class TriageAgent(BaseAgent):
                     patient_name=ctx.patient_metadata.get("name") if ctx.patient_metadata else None,
                     reason=reason,
                     exam_content=ctx.exam_content,
+                    context={"campaign_name": campaign_name} if target == "campaign" and campaign_name else None,
                 ),
             )
 

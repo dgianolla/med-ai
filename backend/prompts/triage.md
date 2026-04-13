@@ -24,6 +24,7 @@ Resposta obrigatória:
 Retorne o agente mais adequado:
 - `scheduling`: paciente já quer marcar consulta, pedir horário, escolher data, remarcar atendimento ou concluir agendamento
 - `exams`: paciente envia exame, pergunta sobre resultado, preparo, pedido médico, imagem ou PDF
+- `campaign`: paciente menciona claramente uma campanha ativa específica listada no contexto do sistema
 - `commercial`: paciente faz contato inicial, vem de campanha, manda só saudação, quer saber sobre consulta, combo, check-up, convênio, pagamento, especialidade ou ainda está entendendo qual atendimento faz mais sentido
 - `return`: paciente fala em retorno, reavaliação, acompanhamento, voltar ao médico ou consulta anterior
 - `weight_loss`: paciente fala em emagrecimento com canetas, Ozempic, Mounjaro, semaglutida, tirzepatida ou protocolo de perda de peso
@@ -34,6 +35,7 @@ Retorne o agente mais adequado:
 - Se houver imagem, PDF ou exame anexado, prefira `exams`.
 - Se houver dúvida entre `return` e `scheduling`, prefira `return` quando a mensagem indicar consulta anterior, retorno, acompanhamento ou continuidade.
 - Se a mensagem for só uma saudação como "oi", "bom dia", "boa tarde", "quero informações", "vim pelo anúncio", "vim pela campanha" ou contato inicial sem pedido específico, use `commercial`.
+- Só use `campaign` quando conseguir associar a mensagem a uma campanha ativa específica pelo nome ou tema. Nesse caso, inclua também `campaign_name` com o nome exato.
 - Se o paciente mencionar especialidade, consulta ou check-up, mas ainda não estiver pedindo data/horário, use `commercial`.
 - Só use `scheduling` quando o paciente já estiver claramente em fase de agenda.
 - Se não houver sinal claro de outro fluxo, use `commercial`.
@@ -44,4 +46,7 @@ Retorne o agente mais adequado:
 - Não use markdown, explicações extras nem texto fora do JSON.
 
 Formato:
-{"target":"scheduling|exams|commercial|return|weight_loss","reason":"motivo breve"}
+{"target":"scheduling|exams|commercial|return|weight_loss|campaign","reason":"motivo breve"}
+
+Se `target` for `campaign`, use:
+{"target":"campaign","campaign_name":"Nome Exato da Campanha","reason":"motivo breve"}

@@ -4,50 +4,52 @@
       "specialty": "Clínico Geral",
       "professional": "Dr. Ricardo Dilda",
       "esp_id": 168,
-      "price_particular": 250.00,
-      "price_note": "Valor de referência — consultar equipe de atendimento para valores atualizados"
+      "price_particular": 120.00,
+      "price_note": "Valor atualizado de consulta particular"
     },
     {
       "specialty": "Cardiologia",
       "professional": "Dr. Ricardo Dilda",
       "esp_id": 6,
-      "price_particular": 350.00,
-      "price_note": "Valor de referência — consultar equipe de atendimento para valores atualizados"
+      "price_particular": 180.00,
+      "price_note": "Valor atualizado de consulta particular"
     },
     {
       "specialty": "Endocrinologia e Metabologia",
       "professional": "Dr. Arthur Wagner",
       "esp_id": 19,
-      "price_particular": 350.00,
-      "price_note": "Valor de referência — consultar equipe de atendimento para valores atualizados"
+      "price_particular": 180.00,
+      "price_note": "Valor atualizado de consulta particular"
     },
     {
       "specialty": "Ginecologia e Obstetrícia",
       "professional": "Dra. Silmara Capeleto",
       "esp_id": 24,
-      "price_particular": 350.00,
-      "price_note": "Valor de referência — consultar equipe de atendimento para valores atualizados"
+      "price_particular": 180.00,
+      "price_note": "Valor atualizado de consulta particular com Papanicolau incluso",
+      "includes": ["Papanicolau"]
     },
     {
       "specialty": "Ginecologia sem Obstetrícia",
       "professional": "Dra. Paolla Cappelari",
       "esp_id": 58,
-      "price_particular": 350.00,
-      "price_note": "Valor de referência — consultar equipe de atendimento para valores atualizados"
+      "price_particular": 180.00,
+      "price_note": "Valor atualizado de consulta particular com Papanicolau incluso",
+      "includes": ["Papanicolau"]
     },
     {
       "specialty": "Dermatologia",
       "professional": "Dra. Ellen Santini",
       "esp_id": 18,
-      "price_particular": 350.00,
-      "price_note": "Valor de referência — consultar equipe de atendimento para valores atualizados"
+      "price_particular": 180.00,
+      "price_note": "Valor atualizado de consulta particular"
     },
     {
       "specialty": "Psiquiatria",
       "professional": "Dra. Rebeca Espelho Storch",
       "esp_id": 49,
-      "price_particular": 400.00,
-      "price_note": "Valor de referência — consultar equipe de atendimento para valores atualizados"
+      "price_particular": 180.00,
+      "price_note": "Valor atualizado de consulta particular"
     }
   ],
 

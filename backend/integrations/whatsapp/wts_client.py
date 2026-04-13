@@ -11,6 +11,7 @@ AGENT_TAG_NAMES = {
     "scheduling":   "Agendamento",
     "exams":        "Exames",
     "commercial":   "Comercial",
+    "campaign":     "LIA-Campanha",
     "return":       "Retorno",
     "cancellation": "Cancelamento",
     "weight_loss":  "Canetas Emagrecimento",

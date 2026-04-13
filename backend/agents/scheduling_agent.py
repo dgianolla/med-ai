@@ -69,6 +69,12 @@ class SchedulingAgent(BaseAgent):
         # Injeta contexto do handoff se vier da Triagem
         if ctx.handoff_payload and ctx.handoff_payload.patient_name:
             system += f"\n\nO paciente já se identificou como: {ctx.handoff_payload.patient_name}"
+        if ctx.handoff_payload and ctx.handoff_payload.specialty_needed:
+            system += (
+                f"\nA especialidade deste atendimento já foi definida anteriormente: "
+                f"{ctx.handoff_payload.specialty_needed}. Priorize essa especialidade e "
+                f"não volte a perguntar qual especialidade o paciente quer."
+            )
 
         # Injeta contexto acumulado de handoffs anteriores
         if ctx.handoff_payload and ctx.handoff_payload.context:
