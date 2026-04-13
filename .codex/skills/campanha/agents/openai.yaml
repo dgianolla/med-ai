@@ -1,0 +1,7 @@
+interface:
+  display_name: "Campanha"
+  short_description: "Gera o molde MD de campanha"
+  default_prompt: "Use $campanha para montar o Markdown padrão de uma nova campanha MetaDS deste projeto."
+
+policy:
+  allow_implicit_invocation: true
