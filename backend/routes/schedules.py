@@ -16,14 +16,51 @@ class TriggerRequest(BaseModel):
     delay_seconds: int = 10
     target_date: Optional[str] = None  # YYYY-MM-DD (defaults to tomorrow)
 
+
+def _format_confirmation_datetime(date_str: str | None, time_str: str | None) -> str:
+    if not date_str and not time_str:
+        return "no horario agendado"
+
+    formatted_date = date_str or ""
+    try:
+        if date_str:
+            formatted_date = datetime.strptime(date_str, "%Y-%m-%d").strftime("%d/%m/%Y")
+    except ValueError:
+        formatted_date = date_str or ""
+
+    formatted_time = (time_str or "").strip()
+    if formatted_time:
+        formatted_time = formatted_time[:5]
+
+    if formatted_date and formatted_time:
+        return f"no dia {formatted_date} as {formatted_time}"
+    if formatted_date:
+        return f"no dia {formatted_date}"
+    return f"as {formatted_time}"
+
+
+def _build_confirmation_message(schedule: dict) -> str:
+    patient_name = schedule.get("nome", "Paciente")
+    professional_name = (schedule.get("profissionalSaude") or {}).get("nome", "seu profissional")
+    appointment_when = _format_confirmation_datetime(
+        schedule.get("data"),
+        schedule.get("horaInicio"),
+    )
+
+    return (
+        f"Olá, {patient_name}! Aqui é da Atend Já.\n\n"
+        f"Estamos confirmando sua consulta com {professional_name} {appointment_when}.\n\n"
+        "Se estiver tudo certo, responda SIM.\n"
+        "Se não puder comparecer, responda NÃO.\n"
+        "Se precisar de outro horário, responda REMARCAR.\n\n"
+        "Este canal é exclusivo para confirmação de consultas.\n"
+        "Para dúvidas ou outros assuntos, fale com a clínica pelo canal oficial de atendimento."
+    )
+
 async def _dispatch_confirmations(schedules: list, delay_seconds: int):
     """Processa a fila de envios com o atraso configurado."""
     db = await get_supabase()
     wts_client = get_confirmation_whatsapp_client()
-    
-    # Pegar o ID do template no painel de configurações (fixo por enquanto como dummy ou busca ativa)
-    # Suponha que já foi aprovado no wts.chat o template 'confirmacao_consulta'
-    TEMPLATE_ID = "confirmacao_consulta_v1" # Alterar conforme setup no wts
     
     for sched in schedules:
         try:
@@ -62,15 +99,10 @@ async def _dispatch_confirmations(schedules: list, delay_seconds: int):
             conf_id = res.data[0]["id"]
             
             try:
-                # Dispara template
-                # Aqui o WTS precisa criar sessao, como nao temos endpoint create_session no client atual, 
-                # assumimos que passamos o phone como session_id se nao instanciado, ou a api interna cria.
-                # Como é um disparo ativo (nova regra), precisará ser ajustado se o wts_client 
-                # exigir criacao de sessao explicita antes de `send_template`.
-                msg_id = await wts_client.send_template(
+                confirmation_message = _build_confirmation_message(sched)
+                msg_id = await wts_client.send_text(
                     session_id=phone, # Usando o telefone como referencia inicial
-                    template_id=TEMPLATE_ID,
-                    parameters={"patient_name": sched.get("nome", "Paciente")}
+                    text=confirmation_message,
                 )
                 
                 # Update success

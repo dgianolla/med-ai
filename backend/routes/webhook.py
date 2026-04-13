@@ -8,7 +8,9 @@ router = APIRouter()
 
 async def _process_message(body: dict):
     """Processa mensagem em background após resposta 200 ao wts.chat."""
+    from agents.confirmation_agent import handle_confirmation
     from integrations.whatsapp import parse_webhook
+    from integrations.whatsapp import get_whatsapp_client
     from orchestrator.orchestrator import dispatch
 
     incoming = parse_webhook(body)
@@ -22,6 +24,25 @@ async def _process_message(body: dict):
         incoming.wts_session_id,
         incoming.text,
     )
+
+    confirmation_result = await handle_confirmation(incoming)
+    if confirmation_result:
+        logger.info(
+            "Mensagem tratada pelo agente de confirmação | phone=%s | intent=%s | status=%s",
+            incoming.patient_phone,
+            confirmation_result["intent"],
+            confirmation_result["status"],
+        )
+        try:
+            whatsapp = get_whatsapp_client()
+            await whatsapp.send_text(
+                session_id=incoming.wts_session_id,
+                text=confirmation_result["reply"],
+                ref_id=incoming.wts_message_id,
+            )
+        except Exception as e:
+            logger.error("Erro ao enviar resposta de confirmação via wts.chat: %s", e)
+        return
 
     await dispatch(incoming)
 
