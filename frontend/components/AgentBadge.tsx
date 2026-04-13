@@ -6,6 +6,8 @@ const AGENT_CONFIG: Record<AgentType, { label: string; color: string }> = {
   exams:      { label: "Exames",       color: "bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border-purple-300 dark:border-purple-700" },
   commercial: { label: "Comercial",    color: "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border-green-300 dark:border-green-700" },
   return:     { label: "Retorno",      color: "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 border-orange-300 dark:border-orange-700" },
+  weight_loss:{ label: "Canetas",      color: "bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300 border-pink-300 dark:border-pink-700" },
+  campaign:   { label: "Campanha",     color: "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-300 dark:border-blue-700" },
 };
 
 export function AgentBadge({ agent }: { agent: AgentType }) {
