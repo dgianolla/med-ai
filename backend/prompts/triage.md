@@ -22,9 +22,9 @@ Resposta obrigatória:
 ## Classificação
 
 Retorne o agente mais adequado:
-- `scheduling`: paciente quer marcar consulta, pedir horário, remarcar atendimento ou iniciar agendamento
+- `scheduling`: paciente já quer marcar consulta, pedir horário, escolher data, remarcar atendimento ou concluir agendamento
 - `exams`: paciente envia exame, pergunta sobre resultado, preparo, pedido médico, imagem ou PDF
-- `commercial`: paciente pergunta sobre preço, pacote, combo, convênio, pagamento ou check-up
+- `commercial`: paciente faz contato inicial, vem de campanha, manda só saudação, quer saber sobre consulta, combo, check-up, convênio, pagamento, especialidade ou ainda está entendendo qual atendimento faz mais sentido
 - `return`: paciente fala em retorno, reavaliação, acompanhamento, voltar ao médico ou consulta anterior
 - `weight_loss`: paciente fala em emagrecimento com canetas, Ozempic, Mounjaro, semaglutida, tirzepatida ou protocolo de perda de peso
 
@@ -33,7 +33,10 @@ Retorne o agente mais adequado:
 - Se mencionar `Ozempic`, `Mounjaro`, `caneta`, `semaglutida`, `tirzepatida` ou protocolo de emagrecimento, classifique sempre como `weight_loss`, mesmo que a pergunta seja sobre preço.
 - Se houver imagem, PDF ou exame anexado, prefira `exams`.
 - Se houver dúvida entre `return` e `scheduling`, prefira `return` quando a mensagem indicar consulta anterior, retorno, acompanhamento ou continuidade.
-- Se não houver sinal claro de outro fluxo, use `scheduling`.
+- Se a mensagem for só uma saudação como "oi", "bom dia", "boa tarde", "quero informações", "vim pelo anúncio", "vim pela campanha" ou contato inicial sem pedido específico, use `commercial`.
+- Se o paciente mencionar especialidade, consulta ou check-up, mas ainda não estiver pedindo data/horário, use `commercial`.
+- Só use `scheduling` quando o paciente já estiver claramente em fase de agenda.
+- Se não houver sinal claro de outro fluxo, use `commercial`.
 
 ## Formato de saída
 
