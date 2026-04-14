@@ -36,7 +36,7 @@ def _short(text: str | None, limit: int = 120) -> str:
 
 class SchedulingAgent(BaseAgent):
     agent_type = "scheduling"
-    model = "claude-sonnet-4-6"
+    model = "claude-haiku-4-5"
 
     async def run(self, ctx: SessionContext) -> AgentResult:
         settings = get_settings()

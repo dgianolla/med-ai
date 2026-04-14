@@ -4,7 +4,7 @@ from db.models import SessionContext, AgentResult, AgentType
 
 class BaseAgent(ABC):
     agent_type: AgentType
-    model: str = "claude-sonnet-4-6"
+    model: str = "claude-haiku-4-5"
 
     @abstractmethod
     async def run(self, ctx: SessionContext) -> AgentResult:

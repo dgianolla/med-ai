@@ -25,7 +25,7 @@ _DONE_PHRASES = [
 
 class CommercialAgent(BaseAgent):
     agent_type = "commercial"
-    model = "claude-sonnet-4-6"
+    model = "claude-haiku-4-5"
 
     async def run(self, ctx: SessionContext) -> AgentResult:
         settings = get_settings()

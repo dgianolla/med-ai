@@ -22,7 +22,7 @@ _SCHEDULING_HANDOFF_PHRASES = [
 
 class ExamsAgent(BaseAgent):
     agent_type = "exams"
-    model = "claude-sonnet-4-6"
+    model = "claude-haiku-4-5"
 
     async def run(self, ctx: SessionContext) -> AgentResult:
         settings = get_settings()
