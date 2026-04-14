@@ -57,6 +57,14 @@ class CampaignAgent(BaseAgent):
                 reply="Posso te ajudar por aqui. Me conta se esse atendimento é para você ou para outra pessoa?",
             )
 
+        logger.info(
+            "[CAMPAIGN] Context | patient=%s | campaign=%s | specialty=%s | history=%s",
+            patient_name,
+            campaign.nome,
+            campaign.especialidade or "-",
+            len(ctx.conversation_history),
+        )
+
         system = load_prompt("campaign")
         system += (
             "\n\n## CAMPANHA ATIVA\n"
@@ -129,6 +137,7 @@ class CampaignAgent(BaseAgent):
                 handoff_context = {
                     "campaign_name": campaign.nome,
                     "lead_source": "campaign",
+                    "invisible_handoff": True,
                     **(
                         ctx.handoff_payload.context
                         if ctx.handoff_payload and ctx.handoff_payload.context
@@ -146,8 +155,11 @@ class CampaignAgent(BaseAgent):
                     context=handoff_context,
                 )
                 handoff_target = "scheduling"
+                # O handoff para agendamento é interno: o paciente deve receber
+                # a próxima mensagem já do fluxo de agenda, sem "te encaminhar".
+                reply = None
                 logger.info(
-                    "[CAMPAIGN] Handoff → scheduling | patient=%s | campaign=%s | specialty=%s",
+                    "[CAMPAIGN] Handoff | kind=invisivel | from=campaign | to=scheduling | patient=%s | campaign=%s | specialty=%s",
                     patient_name, campaign.nome, campaign.especialidade,
                 )
             elif any(phrase in reply_lower for phrase in _DONE_PHRASES):
@@ -155,8 +167,8 @@ class CampaignAgent(BaseAgent):
                 logger.info("[CAMPAIGN] Sessão encerrada | patient=%s | campaign=%s", patient_name, campaign.nome)
 
         logger.info(
-            "[CAMPAIGN] Resposta | patient=%s | campaign=%s | handoff=%s | done=%s",
-            patient_name, campaign.nome, handoff_target or "Nenhum", done,
+            "[CAMPAIGN] Result | patient=%s | campaign=%s | handoff=%s | done=%s | replied=%s",
+            patient_name, campaign.nome, handoff_target or "Nenhum", done, bool(reply),
         )
 
         return AgentResult(

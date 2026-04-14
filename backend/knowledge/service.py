@@ -79,6 +79,24 @@ class KnowledgeService:
 
         return data
 
+    @staticmethod
+    def _match_faq_entry(query_lower: str, items: list[dict[str, Any]]) -> dict[str, Any] | None:
+        """Encontra a pergunta mais próxima por interseção simples de palavras."""
+        query_words = set(query_lower.split())
+        best_match = None
+        best_score = 0
+
+        for item in items:
+            question = item.get("q", "").lower()
+            if not question:
+                continue
+            score = len(set(question.split()) & query_words)
+            if score > best_score:
+                best_score = score
+                best_match = item
+
+        return best_match if best_match and best_score >= 1 else None
+
     def search(self, query: str) -> str:
         """
         Busca simplificada por palavras-chave.
@@ -88,6 +106,10 @@ class KnowledgeService:
         self._load_all()
         query_lower = query.lower()
         results = []
+        pens_query = any(
+            w in query_lower
+            for w in ["caneta", "injetável", "injetavel", "ozempic", "mounjaro", "semaglutida", "tirzepatida", "aplicação", "appli"]
+        )
 
         # ============================================================
         # COMBOS E PREÇOS
@@ -252,22 +274,17 @@ class KnowledgeService:
         # FAQ
         # ============================================================
         faq_triggered = False
-        if any(w in query_lower for w in ["como faço", "posso", "preciso", "tem", "quanto tempo", "o que acontec", "e se", "o que levar", "o que devo", "devo levar", "levar na", "como funciona", "o que é", "o que ", "deve "]):
+        if (
+            not pens_query
+            and any(w in query_lower for w in ["como faço", "posso", "preciso", "tem", "quanto tempo", "o que acontec", "e se", "o que levar", "o que devo", "devo levar", "levar na", "como funciona", "o que é", "o que ", "deve "])
+        ):
             faq = self._cache.get("faq", {}).get("faq", [])
-            # Busca pergunta mais relevante
-            best_match = None
-            best_score = 0
+            faq_items = []
             for category in faq:
-                for q_item in category.get("questions", []):
-                    # Score simples: quantas palavras da query aparecem na pergunta
-                    q_words = set(q_item["q"].lower().split())
-                    query_words = set(query_lower.split())
-                    score = len(q_words & query_words)
-                    if score > best_score:
-                        best_score = score
-                        best_match = q_item
+                faq_items.extend(category.get("questions", []))
 
-            if best_match and best_score >= 1:
+            best_match = self._match_faq_entry(query_lower, faq_items)
+            if best_match:
                 results.append(f"**{best_match['q']}**\n\n{best_match['a']}")
                 faq_triggered = True
 
@@ -305,16 +322,24 @@ class KnowledgeService:
         # ============================================================
         # CANETAS INJETÁVEIS / PROTOCOLOS DE EMAGRECIMENTO
         # ============================================================
-        if any(w in query_lower for w in ["caneta", "injetável", "injetavel", "ozempic", "mounjaro", "semaglutida", "tirzepatida", "aplicação", "appli"]):
+        if pens_query:
             pens_data = self._cache.get("injectable_pens", {})
             canetas = pens_data.get("canetas_injetaveis", [])
+            pens_faq = pens_data.get("perguntas_frequentes", [])
+
+            if any(w in query_lower for w in ["como funciona", "posso", "preciso", "qual a diferença", "diferença", "diferenca", "inclui", "incluído", "incluido", "parcel", "mensal"]):
+                best_pen_faq = self._match_faq_entry(query_lower, pens_faq)
+                if best_pen_faq:
+                    results.append(f"**{best_pen_faq['q']}**\n\n{best_pen_faq['a']}")
 
             # Tenta encontrar caneta específica
             target_pen = None
-            for c in canetas:
-                if c["id"] in query_lower or c["name"].lower() in query_lower:
-                    target_pen = c
-                    break
+            mentioned_pens = [
+                c for c in canetas
+                if c["id"] in query_lower or c["name"].lower() in query_lower
+            ]
+            if len(mentioned_pens) == 1:
+                target_pen = mentioned_pens[0]
 
             if target_pen:
                 pen_text = f"**{target_pen['name']}** ({target_pen.get('active_ingredient', '')})\n"

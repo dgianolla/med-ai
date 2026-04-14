@@ -10,6 +10,20 @@ from integrations.whatsapp import get_whatsapp_client
 logger = logging.getLogger(__name__)
 
 
+def _short(text: str | None, limit: int = 120) -> str:
+    if not text:
+        return ""
+    text = " ".join(text.split())
+    return text if len(text) <= limit else text[: limit - 3] + "..."
+
+
+def _handoff_kind(result: AgentResult) -> str:
+    context = result.handoff_payload.context if result.handoff_payload and result.handoff_payload.context else {}
+    if context.get("invisible_handoff") or context.get("auto_handoff_from_commercial"):
+        return "invisivel"
+    return "visivel"
+
+
 async def _persist_message(
     session_id: str,
     wts_message_id: str,
@@ -100,6 +114,16 @@ async def dispatch(incoming: IncomingMessage) -> None:
         wts_session_id=incoming.wts_session_id,
         patient_name=incoming.patient_name,
     )
+    logger.info(
+        "📩 MENSAGEM RECEBIDA | session=%s | patient=%s | phone=%s | new=%s | current_agent=%s | type=%s | text=%s",
+        ctx.session_id,
+        incoming.patient_name or (ctx.patient_metadata or {}).get("name", "Desconhecido"),
+        incoming.patient_phone,
+        is_new,
+        ctx.current_agent,
+        incoming.message_type,
+        _short(incoming.text),
+    )
 
     # 2. Garante paciente no Supabase
     await _ensure_patient(ctx, incoming)
@@ -155,24 +179,32 @@ async def dispatch(incoming: IncomingMessage) -> None:
         sm.set_agent(ctx, target_agent, payload)
         patient_name = (ctx.patient_metadata or {}).get("name", "Desconhecido")
         logger.info(
-            "🔀 HANDOFF AUTOMÁTICO (router) | %s → %s | patient=%s | msg=%s",
-            previous, target_agent, patient_name, incoming.text[:80],
+            "🔀 ROUTER | from=%s | to=%s | patient=%s | text=%s",
+            previous, target_agent, patient_name, _short(incoming.text),
         )
 
     # 4. Loop de dispatch (permite handoffs imediatos sem nova mensagem do paciente)
     max_hops = 5  # evita loop infinito
+    previous_agent = None
     for hop in range(max_hops):
         agent_id = ctx.current_agent
         patient_name = (ctx.patient_metadata or {}).get("name", "Desconhecido")
         if hop == 0:
             logger.info(
-                "📨 AGENTE ATIVO | agent=%s | patient=%s (%s) | msg=%s",
-                agent_id, patient_name, ctx.patient_phone, incoming.text[:80],
+                "▶️ DISPATCH | hop=%s | agent=%s | patient=%s | phone=%s | text=%s",
+                hop,
+                agent_id,
+                patient_name,
+                ctx.patient_phone,
+                _short(incoming.text),
             )
         else:
             logger.info(
-                "🔄 HANDOFF INTERNO | de=%s → para=%s | patient=%s",
-                ctx.current_agent, agent_id, patient_name,
+                "🔁 CONTINUANDO | hop=%s | from=%s | to=%s | patient=%s",
+                hop,
+                previous_agent,
+                agent_id,
+                patient_name,
             )
 
         result = await _run_agent(agent_id, ctx)
@@ -190,8 +222,8 @@ async def dispatch(incoming: IncomingMessage) -> None:
             )
 
             logger.info(
-                "💬 RESPOSTA | agent=%s | patient=%s | reply=%s",
-                agent_id, patient_name, result.reply[:100],
+                "💬 RESPOSTA | agent=%s | patient=%s | text=%s",
+                agent_id, patient_name, _short(result.reply),
             )
 
             # Envia ao paciente via wts.chat
@@ -214,8 +246,9 @@ async def dispatch(incoming: IncomingMessage) -> None:
             await sm.save(ctx)
             await _finish_session(ctx.session_id)
             logger.info(
-                "✅ SESSÃO CONCLUÍDA | agent=%s | patient=%s | session=%s",
-                agent_id, patient_name, ctx.session_id,
+                "✅ SESSÃO CONCLUÍDA | session=%s | agent=%s | patient=%s",
+                ctx.session_id,
+                agent_id, patient_name,
             )
             break
 
@@ -227,16 +260,22 @@ async def dispatch(incoming: IncomingMessage) -> None:
             await sm.save(ctx)
 
             logger.info(
-                "🔀 HANDOFF | %s → %s | patient=%s | reason=%s",
-                previous_agent, result.handoff_target, patient_name,
-                result.handoff_payload.reason if result.handoff_payload else "N/A",
+                "🔀 HANDOFF | kind=%s | from=%s | to=%s | patient=%s | reason=%s",
+                _handoff_kind(result),
+                previous_agent,
+                result.handoff_target,
+                patient_name,
+                _short(result.handoff_payload.reason if result.handoff_payload else "N/A"),
             )
 
-            # Verifica se é um handoff invisível (auto-handoff de commercial para exams)
+            # Verifica se é um handoff invisível entre agentes internos
             is_invisible_handoff = (
                 result.handoff_payload
                 and result.handoff_payload.context
-                and result.handoff_payload.context.get("auto_handoff_from_commercial")
+                and (
+                    result.handoff_payload.context.get("auto_handoff_from_commercial")
+                    or result.handoff_payload.context.get("invisible_handoff")
+                )
             )
 
             if not is_invisible_handoff:
@@ -252,7 +291,7 @@ async def dispatch(incoming: IncomingMessage) -> None:
                     await whatsapp.add_note(ctx.wts_session_id, note)
             else:
                 logger.info(
-                    "🔒 HANDOFF INVISÍVEL | %s → %s | patient=%s (sem nota/tag no WhatsApp)",
+                    "🔒 HANDOFF INVISÍVEL | from=%s | to=%s | patient=%s | whatsapp_side_effects=off",
                     previous_agent, result.handoff_target, patient_name,
                 )
 
@@ -260,18 +299,24 @@ async def dispatch(incoming: IncomingMessage) -> None:
             # continua o loop imediatamente
             if agent_id == "triage":
                 continue
-            # Handoff invisível de commercial para exams também continua imediatamente
+            # Handoffs invisíveis também continuam imediatamente
             if is_invisible_handoff:
                 continue
             break
 
         # Agente terminou sem handoff — aguarda próxima mensagem do paciente
+        logger.info(
+            "⏸️ AGUARDANDO PACIENTE | session=%s | agent=%s | patient=%s",
+            ctx.session_id,
+            agent_id,
+            patient_name,
+        )
         await sm.save(ctx)
         await _persist_session(ctx)
         break
 
     else:
-        logger.warning("Max hops atingido na sessão %s", ctx.session_id)
+        logger.warning("⚠️ MAX_HOPS | session=%s | patient=%s | hops=%s", ctx.session_id, (ctx.patient_metadata or {}).get("name", "Desconhecido"), max_hops)
         await sm.save(ctx)
 
 
@@ -280,7 +325,7 @@ async def _run_agent(agent_id: str, ctx: SessionContext) -> AgentResult:
     import time
     start = time.time()
     patient_name = (ctx.patient_metadata or {}).get("name", "Desconhecido")
-    logger.info("⚙️ INICIANDO AGENTE | agent=%s | patient=%s", agent_id, patient_name)
+    logger.info("⚙️ AGENTE START | agent=%s | patient=%s | session=%s", agent_id, patient_name, ctx.session_id)
 
     # Import dinâmico — evita importação circular no topo
     if agent_id == "triage":
@@ -313,8 +358,8 @@ async def _run_agent(agent_id: str, ctx: SessionContext) -> AgentResult:
 
     elapsed = time.time() - start
     logger.info(
-        "⏱️ AGENTE FINALIZADO | agent=%s | patient=%s | tempo=%.2fs | done=%s | handoff=%s",
-        agent_id, patient_name, elapsed, result.done, result.handoff_target or "Nenhum",
+        "⏱️ AGENTE END | agent=%s | patient=%s | session=%s | elapsed=%.2fs | done=%s | handoff=%s | replied=%s",
+        agent_id, patient_name, ctx.session_id, elapsed, result.done, result.handoff_target or "Nenhum", bool(result.reply),
     )
     return result
 

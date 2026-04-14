@@ -2,6 +2,7 @@ import json
 import logging
 from datetime import datetime
 from anthropic import AsyncAnthropic
+from anthropic import APIStatusError
 
 from config import get_settings
 from db.models import SessionContext, AgentResult
@@ -26,6 +27,13 @@ logger = logging.getLogger(__name__)
 ALL_TOOLS = TOOLS + KNOWLEDGE_TOOLS
 
 
+def _short(text: str | None, limit: int = 120) -> str:
+    if not text:
+        return ""
+    text = " ".join(text.split())
+    return text if len(text) <= limit else text[: limit - 3] + "..."
+
+
 class SchedulingAgent(BaseAgent):
     agent_type = "scheduling"
     model = "claude-sonnet-4-6"
@@ -38,6 +46,14 @@ class SchedulingAgent(BaseAgent):
         logger.info("[SCHEDULING] Iniciando | patient=%s (%s)", patient_name, ctx.patient_phone)
 
         messages = self._build_history(ctx)
+        logger.info(
+            "[SCHEDULING] Context | patient=%s | history=%s | handoff_type=%s | specialty=%s | context_keys=%s",
+            patient_name,
+            len(messages),
+            ctx.handoff_payload.type if ctx.handoff_payload else None,
+            ctx.handoff_payload.specialty_needed if ctx.handoff_payload else None,
+            sorted((ctx.handoff_payload.context or {}).keys()) if ctx.handoff_payload and ctx.handoff_payload.context else [],
+        )
 
         # Injeta data atual no prompt (substitui {today}, {month}, {year})
         now = datetime.now()
@@ -102,17 +118,46 @@ class SchedulingAgent(BaseAgent):
 
         # Loop agentico: Claude pode chamar múltiplas tools antes de responder ao paciente
         for _ in range(10):  # max 10 iterações por mensagem
-            response = await client.messages.create(
-                model=self.model,
-                max_tokens=384,
-                temperature=0.7,
-                system=system,
-                tools=ALL_TOOLS,
-                messages=messages,
-            )
+            try:
+                response = await client.messages.create(
+                    model=self.model,
+                    max_tokens=384,
+                    temperature=0.7,
+                    system=system,
+                    tools=ALL_TOOLS,
+                    messages=messages,
+                )
+            except APIStatusError as e:
+                logger.error(
+                    "[SCHEDULING] Provider error | status=%s | patient=%s | handoff_type=%s | specialty=%s | messages=%s | detail=%s",
+                    getattr(e, "status_code", "N/A"),
+                    patient_name,
+                    ctx.handoff_payload.type if ctx.handoff_payload else None,
+                    ctx.handoff_payload.specialty_needed if ctx.handoff_payload else None,
+                    len(messages),
+                    getattr(e, "body", None),
+                )
+                return AgentResult(
+                    reply="Desculpe, tive um problema interno ao continuar seu agendamento. Pode me dizer novamente qual especialidade ou exame você quer agendar?",
+                )
+            except Exception as e:
+                logger.exception(
+                    "[SCHEDULING] Unexpected provider failure | patient=%s | messages=%s",
+                    patient_name,
+                    len(messages),
+                )
+                return AgentResult(
+                    reply="Desculpe, tive um problema interno ao continuar seu agendamento. Pode me dizer novamente qual especialidade ou exame você quer agendar?",
+                )
 
             # Claude quer usar uma tool
             if response.stop_reason == "tool_use":
+                tool_names = [block.name for block in response.content if getattr(block, "type", None) == "tool_use"]
+                logger.info(
+                    "[SCHEDULING] Tool request | patient=%s | tools=%s",
+                    patient_name,
+                    tool_names,
+                )
                 # Adiciona resposta do Claude (com tool_use blocks) ao histórico
                 messages.append({"role": "assistant", "content": response.content})
 
@@ -122,7 +167,19 @@ class SchedulingAgent(BaseAgent):
                     if block.type != "tool_use":
                         continue
 
+                    logger.info(
+                        "[SCHEDULING] Tool call | patient=%s | tool=%s | input=%s",
+                        patient_name,
+                        block.name,
+                        _short(json.dumps(block.input, ensure_ascii=False), 200),
+                    )
                     result = await self._execute_tool(block.name, block.input, ctx)
+                    logger.info(
+                        "[SCHEDULING] Tool result | patient=%s | tool=%s | output=%s",
+                        patient_name,
+                        block.name,
+                        _short(json.dumps(result, ensure_ascii=False), 240),
+                    )
                     tool_results.append({
                         "type": "tool_result",
                         "tool_use_id": block.id,
@@ -164,8 +221,8 @@ class SchedulingAgent(BaseAgent):
             )
 
             logger.info(
-                "[SCHEDULING] Resposta gerada | patient=%s | reply=%s | done=%s",
-                patient_name, (reply or "")[:80], done,
+                "[SCHEDULING] Reply | patient=%s | done=%s | text=%s",
+                patient_name, done, _short(reply),
             )
 
             return AgentResult(

@@ -2,21 +2,21 @@
   "canetas_injetaveis": [
     {
       "id": "ozempic",
-      "name": "Ozempic",
+      "name": "Semaglutida",
       "active_ingredient": "Semaglutida",
       "type": "Caneta injetável",
       "application": "Subcutânea, semanal",
       "protocols": [
         {
           "id": "ozempic_mensal",
-          "name": "Ozempic Mensal",
+          "name": "Semaglutida Mensal",
           "duration_days": 30,
           "available": false,
           "note": "Só fechamos protocolo de 90 dias"
         },
         {
           "id": "ozempic_protocolo_90",
-          "name": "Protocolo Ozempic Completo (90 dias)",
+          "name": "Protocolo Semaglutida Completo (90 dias)",
           "duration_days": 90,
           "price": 3300.00,
           "available": true,
@@ -37,21 +37,21 @@
     },
     {
       "id": "mounjaro",
-      "name": "Mounjaro",
+      "name": "Tirzepatida",
       "active_ingredient": "Tirzepatida",
       "type": "Caneta injetável",
       "application": "Subcutânea, semanal",
       "protocols": [
         {
           "id": "mounjaro_mensal",
-          "name": "Mounjaro Mensal",
+          "name": "Tirzepatida Mensal",
           "duration_days": 30,
           "price": 1800.00,
           "available": true
         },
         {
           "id": "mounjaro_protocolo_90",
-          "name": "Protocolo Mounjaro Completo (90 dias)",
+          "name": "Protocolo Tirzepatida Completo (90 dias)",
           "duration_days": 90,
           "price": 5500.00,
           "available": true,
@@ -80,6 +80,57 @@
       "Acompanhamento profissional contínuo",
       "Prescrição médica"
     ],
-    "nota": "Ambos os protocolos (Ozempic e Mounjaro) exigem os requisitos acima."
-  }
+    "nota": "Ambos os protocolos de Semaglutida e Tirzepatida exigem os requisitos acima."
+  },
+
+  "perguntas_frequentes": [
+    {
+      "q": "Posso comprar só a caneta?",
+      "a": "Não. A clínica não vende caneta avulsa. O tratamento é oferecido em protocolo com acompanhamento médico, por segurança e ajuste individual."
+    },
+    {
+      "q": "Preciso de consulta antes de iniciar o protocolo?",
+      "a": "Sim. Antes de qualquer protocolo, é obrigatória a consulta com o endocrinologista para avaliação individualizada, indicação e prescrição médica."
+    },
+    {
+      "q": "Qual a diferença entre Semaglutida e Tirzepatida?",
+      "a": "Trabalhamos com o princípio ativo do medicamento. Ozempic e Mounjaro são marcas comerciais, enquanto Semaglutida e Tirzepatida são os princípios ativos. Na clínica, a Semaglutida é oferecida apenas no protocolo completo de 90 dias. A Tirzepatida tem opção mensal e protocolo de 90 dias. A indicação ideal depende da avaliação do endocrinologista."
+    },
+    {
+      "q": "Qual a diferença entre Ozempic e Mounjaro?",
+      "a": "Trabalhamos com o princípio ativo do medicamento. Ozempic e Mounjaro são marcas comerciais, enquanto Semaglutida e Tirzepatida são os princípios ativos. Na clínica, a Semaglutida é oferecida apenas no protocolo completo de 90 dias. A Tirzepatida tem opção mensal e protocolo de 90 dias. A indicação ideal depende da avaliação do endocrinologista."
+    },
+    {
+      "q": "Semaglutida tem protocolo mensal?",
+      "a": "Não. No momento, a Semaglutida é fechada apenas em protocolo de 90 dias. Trabalhamos com o princípio ativo do medicamento; Ozempic é uma marca."
+    },
+    {
+      "q": "Tirzepatida tem protocolo mensal?",
+      "a": "Sim. A Tirzepatida tem opção mensal e também protocolo completo de 90 dias. Trabalhamos com o princípio ativo do medicamento; Mounjaro é uma marca."
+    },
+    {
+      "q": "O que está incluído no protocolo?",
+      "a": "Os protocolos incluem aplicação semanal, reposição de vitaminas quando necessário, reposição hormonal quando necessário e consulta com endocrinologista a cada 15 dias para ajuste e acompanhamento. Não informamos doses nem detalhes que não estejam definidos na avaliação médica."
+    },
+    {
+      "q": "Quais vitaminas podem ser repostas no protocolo?",
+      "a": "Depende da prescrição do médico. A reposição é feita conforme a necessidade identificada na avaliação. Um exemplo possível é vitamina B12. Não informamos doses nem prometemos vitaminas específicas sem prescrição."
+    },
+    {
+      "q": "Quais hormônios podem ser repostos no protocolo?",
+      "a": "Não passamos essa informação de forma aberta, porque depende da prescrição do médico. Para homens, em casos específicos, pode ser feita reposição de testosterona. Não informamos doses nem indicamos reposição hormonal sem avaliação."
+    },
+    {
+      "q": "Vocês informam a dose da Semaglutida ou da Tirzepatida?",
+      "a": "Não. As doses e ajustes dependem da avaliação e da prescrição médica. Não informamos doses nem inventamos detalhes que não estejam definidos na base de conhecimento e na conduta do médico."
+    },
+    {
+      "q": "Posso parcelar o protocolo?",
+      "a": "Sim. Os protocolos podem ser parcelados conforme as condições vigentes da clínica. Confirme a condição atual antes de informar detalhes."
+    },
+    {
+      "q": "Para emagrecer, posso usar sem acompanhamento?",
+      "a": "Não. O uso para emagrecimento exige avaliação médica, prescrição e acompanhamento profissional contínuo."
+    }
+  ]
 }
