@@ -35,11 +35,6 @@ class CommercialAgent(BaseAgent):
         logger.info("[COMMERCIAL] Iniciando | patient=%s (%s)", patient_name, ctx.patient_phone)
 
         system = load_prompt("commercial")
-        system += (
-            "\n\n## NOTA IMPORTANTE: Os preços e combos listados acima podem estar desatualizados. "
-            "SEMPRE use a tool `get_clinic_info` para consultar preços atuais antes de responder "
-            "perguntas sobre valores. Ex: get_clinic_info(query='qual o preço do combo mulher')."
-        )
 
         # Injeta informações dinâmicas da clínica
         knowledge = get_knowledge()

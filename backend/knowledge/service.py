@@ -9,6 +9,8 @@ from pathlib import Path
 from typing import Any
 from functools import lru_cache
 
+from knowledge.models import Combo
+
 logger = logging.getLogger(__name__)
 
 KNOWLEDGE_DIR = Path(__file__).parent
@@ -19,6 +21,7 @@ class KnowledgeService:
 
     def __init__(self):
         self._cache: dict[str, Any] = {}
+        self._combos: dict[str, Combo] = {}
         self._loaded = False
 
     def _load_all(self) -> None:
@@ -36,7 +39,42 @@ class KnowledgeService:
                 logger.error("Erro ao carregar knowledge/%s: %s", filename.name, e)
                 self._cache[key] = {}
 
+        self._validate_combos()
         self._loaded = True
+
+    def _validate_combos(self) -> None:
+        """Valida combos estruturados via Pydantic. Falha rápido em config inválida."""
+        raw_combos = self._cache.get("pricing", {}).get("combos", [])
+        self._combos = {}
+        for raw in raw_combos:
+            combo = Combo(**raw)
+            self._combos[combo.id] = combo
+        logger.info("Combos validated: %d", len(self._combos))
+
+    def get_combo(self, combo_id: str) -> Combo | None:
+        """Retorna combo estruturado por id."""
+        self._load_all()
+        return self._combos.get(combo_id)
+
+    def list_combos(self) -> list[Combo]:
+        """Retorna todos os combos estruturados."""
+        self._load_all()
+        return list(self._combos.values())
+
+    @staticmethod
+    def _format_combo(combo: Combo) -> str:
+        """Formata combo com metadados operacionais explícitos para o agente."""
+        lines = [f"**{combo.name}** — R$ {combo.price:.2f}"]
+        if combo.includes:
+            lines.append(f"Inclui: {', '.join(combo.includes)}")
+        if combo.consultation_included and combo.consultation_specialty:
+            lines.append(f"Consulta inclusa — especialidade: {combo.consultation_specialty}")
+        if combo.collection_included:
+            note = "agendamento de coleta necessário" if combo.collection_schedule_required else "coleta sem agendamento prévio"
+            lines.append(f"Etapa de coleta/exames: {note}")
+        if combo.return_included and combo.return_window_days:
+            lines.append(f"Retorno em até {combo.return_window_days} dias")
+        return "\n".join(lines)
 
     # ----------------------------------------------------------------
     # API pública
@@ -116,45 +154,26 @@ class KnowledgeService:
         # ============================================================
         if any(w in query_lower for w in ["combo", "pacote", "preço", "valor", "custo", "quanto", "custa"]):
             pricing = self._cache.get("pricing", {})
-            combos = pricing.get("combos", [])
+            combos_list = list(self._combos.values())
+            filter_kw: list[str] | None = None
             if any(w in query_lower for w in ["mulher", "gineco", "papanicolau"]):
-                for c in combos:
-                    if "mulher" in c["name"].lower():
-                        results.append(
-                            f"**{c['name']}** — R$ {c['price']:.2f}\n"
-                            f"Inclui: {', '.join(c['includes'])}"
-                        )
+                filter_kw = ["mulher"]
             elif any(w in query_lower for w in ["homem", "masculino"]):
-                for c in combos:
-                    if "homem" in c["name"].lower():
-                        results.append(
-                            f"**{c['name']}** — R$ {c['price']:.2f}\n"
-                            f"Inclui: {', '.join(c['includes'])}"
-                        )
+                filter_kw = ["homem"]
             elif any(w in query_lower for w in ["idoso", "third age", "melhor idade"]):
-                for c in combos:
-                    if "idoso" in c["name"].lower():
-                        results.append(
-                            f"**{c['name']}** — R$ {c['price']:.2f}\n"
-                            f"Inclui: {', '.join(c['includes'])}"
-                        )
+                filter_kw = ["idoso"]
             elif any(w in query_lower for w in ["pediatra", "criança", "infantil"]):
-                for c in combos:
-                    if "pediatria" in c["name"].lower():
-                        results.append(
-                            f"**{c['name']}** — R$ {c['price']:.2f}\n"
-                            f"Inclui: {', '.join(c['includes'])}"
-                        )
+                filter_kw = ["pediatria"]
             elif any(w in query_lower for w in ["cardio", "coração", "cardiologista"]):
-                for c in combos:
-                    if "cardio" in c["name"].lower():
-                        results.append(
-                            f"**{c['name']}** — R$ {c['price']:.2f}\n"
-                            f"Inclui: {', '.join(c['includes'])}"
-                        )
+                filter_kw = ["cardio"]
+
+            if filter_kw is None:
+                for combo in combos_list:
+                    results.append(f"**{combo.name}** — R$ {combo.price:.2f}")
             else:
-                for c in combos:
-                    results.append(f"**{c['name']}** — R$ {c['price']:.2f}")
+                for combo in combos_list:
+                    if any(kw in combo.name.lower() for kw in filter_kw):
+                        results.append(self._format_combo(combo))
 
             protocols = pricing.get("weight_loss_protocols", [])
             if any(w in query_lower for w in ["emagrecimento", "ozempic", "mounjaro", "peso", "protocolo"]):
