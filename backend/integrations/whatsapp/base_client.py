@@ -12,6 +12,16 @@ class WhatsAppClient(ABC):
         ...
 
     @abstractmethod
+    async def send_outbound_text(
+        self,
+        to_phone: str,
+        text: str,
+        from_channel_id: str,
+    ) -> str:
+        """Dispara mensagem outbound fria (sem sessão pré-existente). Retorna o message_id."""
+        ...
+
+    @abstractmethod
     async def send_template(
         self,
         session_id: str,

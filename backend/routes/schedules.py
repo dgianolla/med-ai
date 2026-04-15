@@ -7,7 +7,8 @@ from fastapi import APIRouter, BackgroundTasks, HTTPException
 
 from db.client import get_supabase
 from integrations.scheduling_api import get_agenda
-from integrations.whatsapp.wts_client import get_confirmation_whatsapp_client
+from integrations.whatsapp.wts_client import get_whatsapp_client
+from config import get_settings
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -59,68 +60,89 @@ def _build_confirmation_message(schedule: dict) -> str:
 
 async def _dispatch_confirmations(schedules: list, delay_seconds: int):
     """Processa a fila de envios com o atraso configurado."""
-    db = await get_supabase()
-    wts_client = get_confirmation_whatsapp_client()
-    
-    for sched in schedules:
-        try:
-            # Pula se o telefone for vazio
-            phone = sched.get("telefonePrincipal", "").strip()
-            if not phone:
-                continue
-                
-            # Verifica se já existe para não enviar duplicado
-            existing = await db.table("schedule_confirmations").select("id, status").eq("appointment_id", sched["id"]).execute()
-            if existing.data and existing.data[0]["status"] != "failed":
-                continue # Já foi enviado ou está na fila
-                
-            # Formata numero
-            if not phone.startswith("55"):
-                phone = "55" + phone
-                
-            # Cria sessão no WTS (usando o endpoint corenato ou assumindo que o template_id resolve o start)
-            # O start session geralmente precisa do telefone
-            # Como send_template no WTS precisa do session_id, se a sessao nao existe, ela deveria ser criada, ou podemos usar o numero.
-            # No wts.chat, para templates usa-se o envio para o número
-            session_id = f"conf_{phone}" # Mock: a integracao WTS precisaria criar sessao ativa. 
-            
-            # Adiciona ao DB como pending
-            data_insert = {
-                "session_id": session_id,
-                "patient_name": sched.get("nome", "Paciente"),
-                "patient_phone": phone,
-                "appointment_id": sched.get("id"),
-                "appointment_date": sched.get("data"),
-                "appointment_time": sched.get("horaInicio"),
-                "professional_name": sched.get("profissionalSaude", {}).get("nome", ""),
-                "status": "pending"
-            }
-            res = await db.table("schedule_confirmations").insert(data_insert).execute()
-            conf_id = res.data[0]["id"]
-            
+    total = len(schedules)
+    logger.info("[DISPATCH] Iniciando fila | total=%d | delay=%ds", total, delay_seconds)
+
+    try:
+        db = await get_supabase()
+        wts_client = get_whatsapp_client()
+        channel_id = get_settings().wts_confirmation_channel_id
+
+        if not channel_id:
+            logger.error("[DISPATCH] WTS_CONFIRMATION_CHANNEL_ID não configurado — abortando fila")
+            return
+
+        sent_count = 0
+        skipped_count = 0
+        failed_count = 0
+
+        for idx, sched in enumerate(schedules, start=1):
+            appointment_id = sched.get("id")
             try:
-                confirmation_message = _build_confirmation_message(sched)
-                msg_id = await wts_client.send_text(
-                    session_id=phone, # Usando o telefone como referencia inicial
-                    text=confirmation_message,
-                )
-                
-                # Update success
-                await db.table("schedule_confirmations").update({
-                    "status": "sent",
-                    "message_id": msg_id,
-                    "session_id": phone # atualiza a sessao correta
-                }).eq("id", conf_id).execute()
-                
+                phone = (sched.get("telefonePrincipal") or "").strip()
+                if not phone:
+                    skipped_count += 1
+                    logger.info("[DISPATCH] %d/%d pulado (sem telefone) | appointment_id=%s", idx, total, appointment_id)
+                    continue
+
+                existing = await db.table("schedule_confirmations").select("id, status").eq("appointment_id", appointment_id).execute()
+                if existing.data and existing.data[0]["status"] != "failed":
+                    skipped_count += 1
+                    logger.info("[DISPATCH] %d/%d pulado (status=%s) | appointment_id=%s", idx, total, existing.data[0]["status"], appointment_id)
+                    continue
+
+                if not phone.startswith("55"):
+                    phone = "55" + phone
+
+                row = {
+                    "session_id": f"conf_{phone}",
+                    "patient_name": sched.get("nome", "Paciente"),
+                    "patient_phone": phone,
+                    "appointment_id": appointment_id,
+                    "appointment_date": sched.get("data"),
+                    "appointment_time": sched.get("horaInicio"),
+                    "professional_name": (sched.get("profissionalSaude") or {}).get("nome", ""),
+                    "status": "pending",
+                }
+                upserted = await db.table("schedule_confirmations").upsert(row, on_conflict="appointment_id").execute()
+                conf_id = upserted.data[0]["id"]
+
+                logger.info("[DISPATCH] %d/%d enviando | appointment_id=%s | phone=%s", idx, total, appointment_id, phone)
+
+                try:
+                    confirmation_message = _build_confirmation_message(sched)
+                    msg_id = await wts_client.send_outbound_text(
+                        to_phone=phone,
+                        text=confirmation_message,
+                        from_channel_id=channel_id,
+                    )
+
+                    await db.table("schedule_confirmations").update({
+                        "status": "sent",
+                        "message_id": msg_id,
+                    }).eq("id", conf_id).execute()
+
+                    sent_count += 1
+                    logger.info("[DISPATCH] %d/%d enviado | appointment_id=%s | msg_id=%s", idx, total, appointment_id, msg_id)
+
+                except Exception as e:
+                    failed_count += 1
+                    logger.error("[DISPATCH] %d/%d falha no WTS | appointment_id=%s | erro=%s", idx, total, appointment_id, e, exc_info=True)
+                    await db.table("schedule_confirmations").update({"status": "failed"}).eq("id", conf_id).execute()
+
+                await asyncio.sleep(delay_seconds)
+
             except Exception as e:
-                logger.error(f"Erro ao disparar WTS: {e}")
-                await db.table("schedule_confirmations").update({"status": "failed"}).eq("id", conf_id).execute()
-            
-            # Espera o delay configurado
-            await asyncio.sleep(delay_seconds)
-            
-        except Exception as e:
-            logger.error(f"Erro no dispatch loop para agenda {sched.get('id')}: {e}")
+                failed_count += 1
+                logger.error("[DISPATCH] %d/%d erro no loop | appointment_id=%s | erro=%s", idx, total, appointment_id, e, exc_info=True)
+
+        logger.info(
+            "[DISPATCH] Finalizado | total=%d | enviados=%d | pulados=%d | falhas=%d",
+            total, sent_count, skipped_count, failed_count,
+        )
+
+    except Exception as e:
+        logger.error("[DISPATCH] Erro fatal na fila de confirmações: %s", e, exc_info=True)
 
 
 @router.post("/api/schedules/trigger-confirmations")

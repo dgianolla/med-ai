@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     # wts.chat
     wts_api_url: str = "https://api.wts.chat"
     wts_api_key: str = ""
-    wts_api_key_confirmation: str = ""
+    wts_confirmation_channel_id: str = ""
 
     # App
     port: int = 8000

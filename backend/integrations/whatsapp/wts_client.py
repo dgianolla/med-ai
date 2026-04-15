@@ -53,6 +53,31 @@ class WtsClient(WhatsAppClient):
             response.raise_for_status()
             return response.json().get("id", "")
 
+    async def send_outbound_text(
+        self,
+        to_phone: str,
+        text: str,
+        from_channel_id: str,
+    ) -> str:
+        payload = {
+            "To": to_phone,
+            "Body": {"text": text},
+            "From": from_channel_id,
+        }
+        headers = {
+            "accept": "application/json",
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {self.api_key}",
+        }
+        async with httpx.AsyncClient(timeout=15) as client:
+            response = await client.post(
+                f"{self.base_url}/chat/v1/message/send",
+                headers=headers,
+                json=payload,
+            )
+            response.raise_for_status()
+            return response.json().get("id", "")
+
     async def send_template(
         self,
         session_id: str,
@@ -138,7 +163,6 @@ class WtsClient(WhatsAppClient):
 
 # Instância global reutilizável
 _wts_client: WtsClient | None = None
-_wts_confirmation_client: WtsClient | None = None
 
 
 def get_whatsapp_client() -> WhatsAppClient:
@@ -147,11 +171,3 @@ def get_whatsapp_client() -> WhatsAppClient:
     if _wts_client is None:
         _wts_client = WtsClient()
     return _wts_client
-
-def get_confirmation_whatsapp_client() -> WhatsAppClient:
-    """Cliente secundário para disparo de confirmações (usa chave diferente)."""
-    global _wts_confirmation_client
-    if _wts_confirmation_client is None:
-        settings = get_settings()
-        _wts_confirmation_client = WtsClient(api_key=settings.wts_api_key_confirmation)
-    return _wts_confirmation_client
