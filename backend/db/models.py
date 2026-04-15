@@ -9,6 +9,25 @@ from datetime import datetime
 AgentType = Literal["triage", "scheduling", "exams", "commercial", "return", "cancellation", "weight_loss", "campaign"]
 
 # ============================================================
+# Tipos de fluxo (separação consulta / exame / combo)
+# ============================================================
+FlowType = Literal["consultation", "exam", "combo"]
+
+FlowStage = Literal[
+    "qualification",
+    "product_selected",
+    "product_confirmed",
+    "collection_guidance",
+    "waiting_collection_schedule",
+    "collection_scheduled",
+    "waiting_consultation_schedule",
+    "consultation_scheduling",
+    "consultation_scheduled",
+    "human_handoff",
+    "completed",
+]
+
+# ============================================================
 # Payload de handoff entre agentes
 # ============================================================
 class HandoffPayload(BaseModel):
@@ -29,6 +48,7 @@ class HandoffPayload(BaseModel):
     specialty_needed: Optional[str] = None
     exam_order_code: Optional[str] = None
     exam_content: Optional[str] = None  # conteúdo extraído de imagem/PDF
+    combo_id: Optional[str] = None  # id do combo em curso (ex: "combo_mulher_exames")
     context: Optional[dict] = None  # dados arbitrários coletados pelo agente anterior
                                     # ex: {"convenio": "particular", "specialty": "cardiologia", "patient_phone": "..."}
                                     # pode incluir "appointment_id" para cancelamentos
@@ -58,6 +78,9 @@ class SessionContext(BaseModel):
     patient_phone: str
     wts_session_id: str
     current_agent: AgentType = "triage"
+    flow_type: Optional[FlowType] = None    # consultation | exam | combo
+    flow_stage: Optional[FlowStage] = None  # etapa do fluxo (ver FlowStage)
+    combo_id: Optional[str] = None          # id do combo ativo quando flow_type=combo
     conversation_history: list[dict] = []   # últimas 15 mensagens
     handoff_payload: Optional[HandoffPayload] = None
     patient_metadata: Optional[dict] = None # nome, cpf, convenio, etc coletados
