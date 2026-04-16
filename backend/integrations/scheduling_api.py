@@ -115,7 +115,7 @@ async def create_appointment(
         return resp.json()
 
 
-async def cancel_appointment(appointment_id: int, reason: str = "Solicitado pelo paciente via WhatsApp") -> dict:
+async def cancel_appointment(appointment_id: str | int, reason: str = "Solicitado pelo paciente via WhatsApp") -> dict:
     """Cancela um agendamento existente. Retorna confirmação do cancelamento."""
     payload = {
         "situacao": "CANCELADO",
@@ -126,6 +126,18 @@ async def cancel_appointment(appointment_id: int, reason: str = "Solicitado pelo
             f"{BASE_URL}/agendamentos/{appointment_id}/cancelar",
             headers={**_headers(), "Content-Type": "application/json"},
             json=payload,
+        )
+        resp.raise_for_status()
+        return resp.json()
+
+
+async def confirm_appointment(appointment_id: str | int) -> dict:
+    """Confirma um agendamento existente. Retorna confirmação da operação."""
+    async with httpx.AsyncClient(verify=False, timeout=10) as client:
+        resp = await client.put(
+            f"{BASE_URL}/agendamentos/{appointment_id}/confirmar",
+            headers={**_headers(), "Content-Type": "application/json"},
+            json={},
         )
         resp.raise_for_status()
         return resp.json()

@@ -9,37 +9,30 @@ from postgrest.exceptions import APIError
 from config import get_settings
 from db.client import get_supabase
 from db.models import IncomingMessage
+from integrations.scheduling_api import cancel_appointment, confirm_appointment
 
 logger = logging.getLogger(__name__)
 
-CONFIRMATION_INTENTS = {
-    "confirmed",
-    "canceled",
-    "reschedule_requested",
-    "unclear",
-}
+CONFIRMATION_INTENTS = {"sim", "nao", "fora_de_contexto"}
+
+_CLINIC_WHATSAPP = "(15) 99695-0709"
 
 
 def _fallback_classify(text: str) -> str:
     text = (text or "").lower().strip()
 
-    confirm_patterns = [
-        r"\b(sim|confirmo|confirmada|confirmado|confirmar|ok|okay|certo|vou sim|estarei ai|estarei aí)\b",
+    sim_patterns = [
+        r"\b(sim|confirmo|confirmado|confirmada|confirmar|ok|okay|certo|pode ser|vou sim|estarei a[ií]|comparecerei)\b",
     ]
-    cancel_patterns = [
-        r"\b(n[aã]o vou|n[aã]o consigo|n[aã]o poderei|n[aã]o posso ir|cancelar|cancela|desmarcar)\b",
-    ]
-    reschedule_patterns = [
-        r"\b(remarcar|reagendar|outro horario|outro horário|mudar horario|mudar horário|trocar horario|trocar horário)\b",
+    nao_patterns = [
+        r"\b(n[aã]o|nao vou|n[aã]o consigo|n[aã]o poderei|n[aã]o posso|cancelar|cancela|cancelo|desmarcar|desmarca)\b",
     ]
 
-    if any(re.search(pattern, text) for pattern in reschedule_patterns):
-        return "reschedule_requested"
-    if any(re.search(pattern, text) for pattern in cancel_patterns):
-        return "canceled"
-    if any(re.search(pattern, text) for pattern in confirm_patterns):
-        return "confirmed"
-    return "unclear"
+    if any(re.search(p, text) for p in nao_patterns):
+        return "nao"
+    if any(re.search(p, text) for p in sim_patterns):
+        return "sim"
+    return "fora_de_contexto"
 
 
 async def _classify_confirmation_intent(text: str) -> str:
@@ -47,24 +40,24 @@ async def _classify_confirmation_intent(text: str) -> str:
     client = AsyncAnthropic(api_key=settings.anthropic_api_key)
 
     system = (
-        "Você classifica respostas curtas de pacientes sobre confirmação de consulta. "
-        "Responda APENAS JSON válido com a chave intent. "
-        "Intenções permitidas: confirmed, canceled, reschedule_requested, unclear. "
-        "Use confirmed quando o paciente claramente diz que irá comparecer. "
-        "Use canceled quando ele diz que não irá, quer cancelar ou não consegue comparecer. "
-        "Use reschedule_requested quando quer mudar data/horário ou remarcar. "
-        "Use unclear quando houver dúvida, ambiguidade ou falta de informação."
+        "Você classifica respostas curtas de pacientes a uma mensagem de confirmação de consulta. "
+        "Sua única missão é retornar o rótulo. Responda APENAS JSON válido com a chave intent. "
+        "Rótulos permitidos: sim, nao, fora_de_contexto. "
+        "- sim: o paciente confirma que vai comparecer (ex.: 'sim', 'confirmo', 'ok', 'estarei aí'). "
+        "- nao: o paciente diz que não vai comparecer, quer cancelar ou desmarcar. "
+        "- fora_de_contexto: qualquer outra coisa — dúvidas, pedidos de remarcação, saudações, "
+        "mensagens ambíguas, reclamações, áudios/imagens ou assuntos não relacionados."
     )
 
     user_prompt = (
         "Classifique a mensagem abaixo.\n"
         f"Mensagem: {text}\n\n"
-        'Formato obrigatório: {"intent":"confirmed|canceled|reschedule_requested|unclear"}'
+        'Formato obrigatório: {"intent":"sim|nao|fora_de_contexto"}'
     )
 
     response = await client.messages.create(
         model="claude-haiku-4-5",
-        max_tokens=80,
+        max_tokens=60,
         temperature=0,
         system=system,
         messages=[{"role": "user", "content": user_prompt}],
@@ -88,7 +81,7 @@ async def _find_active_confirmation(message: IncomingMessage) -> dict[str, Any] 
         try:
             res = await (
                 db.table("schedule_confirmations")
-                .select("id, session_id, patient_phone, status, appointment_id")
+                .select("id, session_id, patient_phone, patient_name, status, appointment_id")
                 .eq(column, value)
                 .in_("status", ["pending", "sent"])
                 .order("created_at", desc=True)
@@ -110,28 +103,14 @@ async def _find_active_confirmation(message: IncomingMessage) -> dict[str, Any] 
     return None
 
 
-def _build_confirmation_reply(intent: str) -> tuple[str, str]:
-    if intent == "confirmed":
-        return (
-            "confirmed",
-            "Perfeito! Sua consulta está confirmada. Se surgir algum imprevisto, nos avise por aqui.",
-        )
-
-    if intent == "reschedule_requested":
-        return (
-            "canceled",
-            "Entendido. Vou registrar que você precisa remarcar. Nossa equipe pode te ajudar com um novo horário.",
-        )
-
-    if intent == "canceled":
-        return (
-            "canceled",
-            "Tudo certo. Vou registrar que você não poderá comparecer. Se quiser remarcar, podemos te ajudar por aqui.",
-        )
-
+def _build_out_of_context_reply(patient_name: str | None) -> str:
+    name = (patient_name or "").strip() or "tudo bem"
     return (
-        "pending",
-        "Quero confirmar certinho com você: responda 'Sim' se vai comparecer ou 'Não' se não poderá vir.",
+        f"Olá, {name}! 😊\n\n"
+        "Este canal é exclusivo para confirmação de consultas e não conseguimos responder sua mensagem por aqui.\n\n"
+        "Para dúvidas, remarcações ou outros assuntos, por favor entre em contato pelo WhatsApp:\n"
+        f"📲 {_CLINIC_WHATSAPP}\n\n"
+        "Agradecemos a compreensão!"
     )
 
 
@@ -140,9 +119,12 @@ async def handle_confirmation(message: IncomingMessage) -> dict[str, Any] | None
     Processa respostas às mensagens de confirmação disparadas pelo painel.
     Retorna None quando a mensagem não pertence a uma confirmação ativa.
     """
-    active_confirmation = await _find_active_confirmation(message)
-    if not active_confirmation:
+    active = await _find_active_confirmation(message)
+    if not active:
         return None
+
+    appointment_id = active.get("appointment_id")
+    patient_name = active.get("patient_name")
 
     try:
         intent = await _classify_confirmation_intent(message.text)
@@ -150,27 +132,60 @@ async def handle_confirmation(message: IncomingMessage) -> dict[str, Any] | None
         logger.warning("Falha ao classificar confirmação com LLM, usando fallback: %s", e)
         intent = _fallback_classify(message.text)
 
-    status, reply = _build_confirmation_reply(intent)
+    if intent == "sim":
+        try:
+            await confirm_appointment(appointment_id)
+            logger.info("[CONFIRMATION] api-vizi confirmar OK | appointment_id=%s", appointment_id)
+        except Exception as e:
+            logger.error(
+                "[CONFIRMATION] Falha ao chamar PUT /agendamentos/%s/confirmar: %s",
+                appointment_id, e, exc_info=True,
+            )
+        new_status = "confirmed"
+        reply = (
+            f"Perfeito, {patient_name or 'tudo certo'}! ✅\n"
+            "Sua consulta está confirmada. Te aguardamos no horário agendado."
+        )
 
-    try:
-        db = await get_supabase()
-        await db.table("schedule_confirmations").update({"status": status}).eq("id", active_confirmation["id"]).execute()
-    except Exception as e:
-        logger.error("Erro ao atualizar status da confirmação %s: %s", active_confirmation["id"], e)
+    elif intent == "nao":
+        try:
+            await cancel_appointment(appointment_id, reason="Paciente não confirmou a consulta via WhatsApp")
+            logger.info("[CONFIRMATION] api-vizi cancelar OK | appointment_id=%s", appointment_id)
+        except Exception as e:
+            logger.error(
+                "[CONFIRMATION] Falha ao chamar PUT /agendamentos/%s/cancelar: %s",
+                appointment_id, e, exc_info=True,
+            )
+        new_status = "canceled"
+        reply = (
+            f"Tudo certo, {patient_name or ''}. Registramos que você não poderá comparecer.\n\n"
+            f"Se quiser remarcar, fale com a clínica pelo WhatsApp: 📲 {_CLINIC_WHATSAPP}"
+        )
+
+    else:  # fora_de_contexto
+        new_status = "sent"  # não finaliza — paciente pode responder SIM/NAO depois
+        reply = _build_out_of_context_reply(patient_name)
+
+    if new_status != active.get("status"):
+        try:
+            db = await get_supabase()
+            await db.table("schedule_confirmations").update({"status": new_status}).eq("id", active["id"]).execute()
+        except Exception as e:
+            logger.error("Erro ao atualizar status da confirmação %s: %s", active["id"], e)
 
     logger.info(
-        "Confirmação processada | appointment_id=%s | phone=%s | intent=%s | status=%s | text=%s",
-        active_confirmation.get("appointment_id"),
-        active_confirmation.get("patient_phone"),
+        "[CONFIRMATION] processada | appointment_id=%s | phone=%s | intent=%s | status=%s | text=%s",
+        appointment_id,
+        active.get("patient_phone"),
         intent,
-        status,
+        new_status,
         message.text[:120],
     )
 
     return {
         "handled": True,
         "intent": intent,
-        "status": status,
+        "status": new_status,
         "reply": reply,
-        "is_final": status in {"confirmed", "canceled"},
+        "is_final": new_status in {"confirmed", "canceled"},
     }

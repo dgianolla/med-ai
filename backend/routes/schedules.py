@@ -18,44 +18,37 @@ class TriggerRequest(BaseModel):
     target_date: Optional[str] = None  # YYYY-MM-DD (defaults to tomorrow)
 
 
-def _format_confirmation_datetime(date_str: str | None, time_str: str | None) -> str:
-    if not date_str and not time_str:
-        return "no horario agendado"
-
-    formatted_date = date_str or ""
+def _format_appointment_date(date_str: str | None) -> str:
+    if not date_str:
+        return ""
     try:
-        if date_str:
-            formatted_date = datetime.strptime(date_str, "%Y-%m-%d").strftime("%d/%m/%Y")
+        return datetime.strptime(date_str, "%Y-%m-%d").strftime("%d/%m/%Y")
     except ValueError:
-        formatted_date = date_str or ""
+        return date_str
 
-    formatted_time = (time_str or "").strip()
-    if formatted_time:
-        formatted_time = formatted_time[:5]
 
-    if formatted_date and formatted_time:
-        return f"no dia {formatted_date} as {formatted_time}"
-    if formatted_date:
-        return f"no dia {formatted_date}"
-    return f"as {formatted_time}"
+def _format_appointment_time(time_str: str | None) -> str:
+    time_str = (time_str or "").strip()
+    return time_str[:5] if time_str else ""
 
 
 def _build_confirmation_message(schedule: dict) -> str:
     patient_name = schedule.get("nome", "Paciente")
-    professional_name = (schedule.get("profissionalSaude") or {}).get("nome", "seu profissional")
-    appointment_when = _format_confirmation_datetime(
-        schedule.get("data"),
-        schedule.get("horaInicio"),
-    )
+    professional_name = ((schedule.get("profissionalSaude") or {}).get("nome") or "seu médico").strip()
+    appointment_date = _format_appointment_date(schedule.get("data"))
+    appointment_time = _format_appointment_time(schedule.get("horaInicio"))
 
     return (
-        f"Olá, {patient_name}! Aqui é da Atend Já.\n\n"
-        f"Estamos confirmando sua consulta com {professional_name} {appointment_when}.\n\n"
-        "Se estiver tudo certo, responda SIM.\n"
-        "Se não puder comparecer, responda NÃO.\n"
-        "Se precisar de outro horário, responda REMARCAR.\n\n"
-        "Este canal é exclusivo para confirmação de consultas.\n"
-        "Para dúvidas ou outros assuntos, fale com a clínica pelo canal oficial de atendimento."
+        f"Olá, {patient_name}! Tudo bem? 😊\n"
+        "Aqui é da Atend Já.\n\n"
+        f"Estamos confirmando sua consulta com {professional_name} no dia {appointment_date} às {appointment_time}.\n\n"
+        "Por favor, responda conforme abaixo:\n"
+        "👉 SIM – para confirmar presença\n"
+        "👉 NÃO – caso não possa comparecer\n"
+        "👉 REMARCAR – para alterar o horário, fale pelo WhatsApp: (15) 99695-0709\n\n"
+        "⚠️ Este canal é exclusivo para confirmação de consultas.\n"
+        "❗ Mensagens fora desse escopo não serão respondidas.\n\n"
+        "Para dúvidas ou outros assuntos, entre em contato com a clínica pelo nosso canal oficial de atendimento."
     )
 
 async def _dispatch_confirmations(schedules: list, delay_seconds: int):
