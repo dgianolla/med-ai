@@ -13,7 +13,7 @@ from integrations.scheduling_api import cancel_appointment, confirm_appointment
 
 logger = logging.getLogger(__name__)
 
-CONFIRMATION_INTENTS = {"sim", "nao", "fora_de_contexto"}
+CONFIRMATION_INTENTS = {"sim", "nao", "remarcar", "fora_de_contexto"}
 
 _CLINIC_WHATSAPP = "(15) 99695-0709"
 
@@ -25,39 +25,77 @@ def _fallback_classify(text: str) -> str:
         r"\b(sim|confirmo|confirmado|confirmada|confirmar|ok|okay|certo|pode ser|vou sim|estarei a[ií]|comparecerei)\b",
     ]
     nao_patterns = [
-        r"\b(n[aã]o|nao vou|n[aã]o consigo|n[aã]o poderei|n[aã]o posso|cancelar|cancela|cancelo|desmarcar|desmarca)\b",
+        r"\b(n[aã]o|nao vou|n[aã]o consigo|n[aã]o poderei|n[aã]o posso|cancelar|cancela|cancelo)\b",
+    ]
+    remarcar_patterns = [
+        r"\b(remarcar|remarca[cç][aã]o|reagendar|reagendamento|trocar horario|trocar horário|outro horario|outro horário)\b",
     ]
 
     if any(re.search(p, text) for p in nao_patterns):
         return "nao"
+    if any(re.search(p, text) for p in remarcar_patterns):
+        return "remarcar"
     if any(re.search(p, text) for p in sim_patterns):
         return "sim"
     return "fora_de_contexto"
 
 
-async def _classify_confirmation_intent(text: str) -> str:
+def _fallback_reply(intent: str, patient_name: str | None) -> str:
+    name = (patient_name or "").strip() or "tudo bem"
+
+    if intent == "sim":
+        return (
+            f"Perfeito, {name}! ✅\n"
+            "Sua consulta está confirmada. Te aguardamos no horário agendado."
+        )
+    if intent == "nao":
+        return (
+            f"Tudo certo, {name}.\n\n"
+            "Registramos que você não poderá comparecer.\n"
+            f"Se quiser remarcar, fale com a clínica pelo WhatsApp: 📲 {_CLINIC_WHATSAPP}"
+        )
+    if intent == "remarcar":
+        return (
+            f"Sem problema, {name}.\n\n"
+            "Para remarcar sua consulta, fale com a clínica pelo WhatsApp:\n"
+            f"📲 {_CLINIC_WHATSAPP}"
+        )
+    return _build_out_of_context_reply(patient_name)
+
+
+async def _classify_confirmation_response(text: str, patient_name: str | None) -> dict[str, str]:
     settings = get_settings()
     client = AsyncAnthropic(api_key=settings.anthropic_api_key)
 
     system = (
-        "Você classifica respostas curtas de pacientes a uma mensagem de confirmação de consulta. "
-        "Sua única missão é retornar o rótulo. Responda APENAS JSON válido com a chave intent. "
-        "Rótulos permitidos: sim, nao, fora_de_contexto. "
+        "Você responde pacientes em um canal exclusivo de confirmação de consultas. "
+        "Receberá uma resposta curta após a mensagem: SIM para confirmar, NÃO para não comparecer, "
+        "REMARCAR para alterar horário, ou algo fora de contexto. "
+        "Sua tarefa é retornar APENAS JSON válido com as chaves intent e reply. "
+        "Rótulos permitidos: sim, nao, remarcar, fora_de_contexto. "
         "- sim: o paciente confirma que vai comparecer (ex.: 'sim', 'confirmo', 'ok', 'estarei aí'). "
-        "- nao: o paciente diz que não vai comparecer, quer cancelar ou desmarcar. "
-        "- fora_de_contexto: qualquer outra coisa — dúvidas, pedidos de remarcação, saudações, "
-        "mensagens ambíguas, reclamações, áudios/imagens ou assuntos não relacionados."
+        "- nao: o paciente diz que não vai comparecer ou quer cancelar. "
+        "- remarcar: o paciente quer alterar horário/data ou remarcar. "
+        "- fora_de_contexto: qualquer outra coisa — dúvidas, saudações, reclamações, "
+        "áudios/imagens ou assuntos não relacionados. "
+        "A reply deve seguir o tom da mensagem original: cordial, objetiva e curta. "
+        "Para remarcar ou fora_de_contexto, direcione para o WhatsApp da clínica "
+        f"{_CLINIC_WHATSAPP}. "
+        "Não invente informações. Não use markdown complexo."
     )
 
     user_prompt = (
-        "Classifique a mensagem abaixo.\n"
-        f"Mensagem: {text}\n\n"
-        'Formato obrigatório: {"intent":"sim|nao|fora_de_contexto"}'
+        f"Nome do paciente: {patient_name or 'Paciente'}\n"
+        "Mensagem de contexto enviada ao paciente:\n"
+        "\"Por favor, responda conforme abaixo: SIM para confirmar presença, "
+        "NÃO caso não possa comparecer, REMARCAR para alterar o horário.\"\n\n"
+        f"Resposta do paciente: {text}\n\n"
+        'Formato obrigatório: {"intent":"sim|nao|remarcar|fora_de_contexto","reply":"..."}'
     )
 
     response = await client.messages.create(
         model="claude-haiku-4-5",
-        max_tokens=60,
+        max_tokens=180,
         temperature=0,
         system=system,
         messages=[{"role": "user", "content": user_prompt}],
@@ -68,7 +106,10 @@ async def _classify_confirmation_intent(text: str) -> str:
     intent = payload.get("intent")
     if intent not in CONFIRMATION_INTENTS:
         raise ValueError(f"Intent inválida retornada pela LLM: {intent}")
-    return intent
+    final_reply = (payload.get("reply") or "").strip()
+    if not final_reply:
+        raise ValueError("Reply vazia retornada pela LLM")
+    return {"intent": intent, "reply": final_reply}
 
 
 async def _find_active_confirmation(message: IncomingMessage) -> dict[str, Any] | None:
@@ -141,10 +182,13 @@ async def handle_confirmation(message: IncomingMessage) -> dict[str, Any] | None
     patient_name = active.get("patient_name")
 
     try:
-        intent = await _classify_confirmation_intent(message.text)
+        llm_result = await _classify_confirmation_response(message.text, patient_name)
+        intent = llm_result["intent"]
+        reply = llm_result["reply"]
     except Exception as e:
-        logger.warning("Falha ao classificar confirmação com LLM, usando fallback: %s", e)
+        logger.warning("Falha ao processar confirmação com LLM, usando fallback: %s", e)
         intent = _fallback_classify(message.text)
+        reply = _fallback_reply(intent, patient_name)
 
     if intent == "sim":
         try:
@@ -156,10 +200,6 @@ async def handle_confirmation(message: IncomingMessage) -> dict[str, Any] | None
                 appointment_id, e, exc_info=True,
             )
         new_status = "confirmed"
-        reply = (
-            f"Perfeito, {patient_name or 'tudo certo'}! ✅\n"
-            "Sua consulta está confirmada. Te aguardamos no horário agendado."
-        )
 
     elif intent == "nao":
         try:
@@ -171,14 +211,12 @@ async def handle_confirmation(message: IncomingMessage) -> dict[str, Any] | None
                 appointment_id, e, exc_info=True,
             )
         new_status = "canceled"
-        reply = (
-            f"Tudo certo, {patient_name or ''}. Registramos que você não poderá comparecer.\n\n"
-            f"Se quiser remarcar, fale com a clínica pelo WhatsApp: 📲 {_CLINIC_WHATSAPP}"
-        )
+
+    elif intent == "remarcar":
+        new_status = "sent"
 
     else:  # fora_de_contexto
         new_status = "sent"  # não finaliza — paciente pode responder SIM/NAO depois
-        reply = _build_out_of_context_reply(patient_name)
 
     if new_status != active.get("status"):
         try:
