@@ -7,6 +7,7 @@ from fastapi import APIRouter, BackgroundTasks, HTTPException
 
 from db.client import get_supabase
 from integrations.scheduling_api import get_agenda
+from integrations.helena_client import trigger_confirmation_chatbot
 from integrations.whatsapp.wts_client import get_whatsapp_client
 from config import get_settings
 from phone_utils import normalize_brazil_phone
@@ -115,6 +116,35 @@ async def _dispatch_confirmations(schedules: list, delay_seconds: int):
 
                     sent_count += 1
                     logger.info("[DISPATCH] %d/%d enviado | appointment_id=%s | msg_id=%s", idx, total, appointment_id, msg_id)
+
+                    helena_delay = get_settings().wts_confirmation_trigger_delay_seconds
+                    if helena_delay > 0:
+                        logger.info(
+                            "[DISPATCH] %d/%d aguardando %ss para acionar Helena | appointment_id=%s",
+                            idx,
+                            total,
+                            helena_delay,
+                            appointment_id,
+                        )
+                        await asyncio.sleep(helena_delay)
+
+                    logger.info(
+                        "[DISPATCH] %d/%d acionando Helena | appointment_id=%s",
+                        idx,
+                        total,
+                        appointment_id,
+                    )
+                    try:
+                        await trigger_confirmation_chatbot()
+                    except Exception as e:
+                        logger.error(
+                            "[DISPATCH] %d/%d falha ao acionar Helena | appointment_id=%s | erro=%s",
+                            idx,
+                            total,
+                            appointment_id,
+                            e,
+                            exc_info=True,
+                        )
 
                 except Exception as e:
                     failed_count += 1

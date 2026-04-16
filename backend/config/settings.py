@@ -26,6 +26,11 @@ class Settings(BaseSettings):
     wts_api_key: str = ""
     wts_confirmation_channel_id: str = ""
 
+    # wts.chat chatbot trigger
+    wts_chatbot_send_url: str = "https://api.helena.run/chat/v1/chatbot/send"
+    wts_confirmation_chatbot_id: str = ""
+    wts_confirmation_trigger_delay_seconds: int = 3
+
     # App
     port: int = 8000
     environment: str = "development"
