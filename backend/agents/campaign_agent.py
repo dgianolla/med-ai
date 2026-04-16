@@ -4,15 +4,22 @@ import logging
 from anthropic import AsyncAnthropic
 
 from agents.base_agent import BaseAgent
+from agents.handoff_utils import (
+    build_combo_scheduling_handoff,
+    build_consultation_scheduling_handoff,
+    set_combo_flow,
+    set_consultation_flow,
+)
 from agents.prompt_loader import load_prompt
 from campaigns.service import get_campaign_service
 from config import get_settings
 from db.models import AgentResult, HandoffPayload, SessionContext
 from knowledge.tools import TOOLS as KNOWLEDGE_TOOLS, get_clinic_info
+from tools.commercial_tools import TOOLS as COMMERCIAL_TOOLS, confirm_combo
 
 logger = logging.getLogger(__name__)
 
-ALL_TOOLS = KNOWLEDGE_TOOLS
+ALL_TOOLS = KNOWLEDGE_TOOLS + COMMERCIAL_TOOLS
 
 _SCHEDULING_HANDOFF_PHRASES = [
     "vou te encaminhar para agendamento",
@@ -54,7 +61,22 @@ class CampaignAgent(BaseAgent):
                 campaign_name, patient_name,
             )
             return AgentResult(
-                reply="Posso te ajudar por aqui. Me conta se esse atendimento é para você ou para outra pessoa?",
+                handoff_target="commercial",
+                handoff_payload=HandoffPayload(
+                    type="to_commercial",
+                    patient_name=(ctx.patient_metadata or {}).get("name"),
+                    reason="Campanha não encontrada ou não está mais ativa; seguir no comercial genérico",
+                    context={
+                        "previous_agent": "campaign",
+                        "campaign_name": campaign_name,
+                        "invisible_handoff": True,
+                        **(
+                            ctx.handoff_payload.context
+                            if ctx.handoff_payload and ctx.handoff_payload.context
+                            else {}
+                        ),
+                    },
+                ),
             )
 
         logger.info(
@@ -91,6 +113,7 @@ class CampaignAgent(BaseAgent):
         messages = self._build_history(ctx)
 
         reply = None
+        confirmed_combo: dict | None = None
         for _ in range(5):
             response = await client.messages.create(
                 model=self.model,
@@ -111,6 +134,17 @@ class CampaignAgent(BaseAgent):
 
                     if block.name == "get_clinic_info":
                         result = await get_clinic_info(block.input["query"])
+                    elif block.name == "confirm_combo":
+                        result = confirm_combo(block.input["combo_id"])
+                        if result.get("ok"):
+                            confirmed_combo = result
+                            logger.info(
+                                "[CAMPAIGN] Combo confirmado | patient=%s | campaign=%s | combo=%s | specialty=%s",
+                                patient_name,
+                                campaign.nome,
+                                result["combo_id"],
+                                result.get("consultation_specialty"),
+                            )
                     else:
                         result = {"error": f"Tool desconhecida: {block.name}"}
 
@@ -130,30 +164,58 @@ class CampaignAgent(BaseAgent):
         handoff_payload = None
         done = False
 
-        if reply:
+        if confirmed_combo and confirmed_combo.get("consultation_included"):
+            set_combo_flow(ctx, confirmed_combo["combo_id"])
+
+            handoff_target = "scheduling"
+            handoff_payload = build_combo_scheduling_handoff(
+                ctx,
+                patient_name=(ctx.patient_metadata or {}).get("name"),
+                reason=(
+                    f"Paciente confirmou o combo {confirmed_combo['name']} "
+                    f"na campanha {campaign.nome} — etapa de consulta "
+                    f"({confirmed_combo['consultation_specialty']})"
+                ),
+                source_agent="campaign",
+                combo=confirmed_combo,
+                extra_context={
+                    "campaign_name": campaign.nome,
+                    "lead_source": "campaign",
+                },
+            )
+            reply = None
+            logger.info(
+                "[CAMPAIGN] Handoff | kind=invisivel | from=campaign | to=scheduling | patient=%s | campaign=%s | combo=%s | specialty=%s",
+                patient_name,
+                campaign.nome,
+                confirmed_combo["combo_id"],
+                confirmed_combo["consultation_specialty"],
+            )
+        elif reply:
             reply_lower = reply.lower()
 
             if any(phrase in reply_lower for phrase in _SCHEDULING_HANDOFF_PHRASES):
+                set_consultation_flow(ctx)
+                handoff_payload = build_consultation_scheduling_handoff(
+                    ctx,
+                    patient_name=(ctx.patient_metadata or {}).get("name"),
+                    reason=f"Paciente avançou na campanha {campaign.nome} e quer agendar",
+                    source_agent="campaign",
+                    specialty_needed=campaign.especialidade,
+                    extra_context={
+                        "campaign_name": campaign.nome,
+                        "lead_source": "campaign",
+                    },
+                )
                 handoff_context = {
                     "campaign_name": campaign.nome,
                     "lead_source": "campaign",
-                    "invisible_handoff": True,
-                    **(
-                        ctx.handoff_payload.context
-                        if ctx.handoff_payload and ctx.handoff_payload.context
-                        else {}
-                    ),
+                    **(handoff_payload.context or {}),
                 }
                 if campaign.especialidade:
                     handoff_context["specialty"] = campaign.especialidade
+                handoff_payload.context = handoff_context
 
-                handoff_payload = HandoffPayload(
-                    type="to_scheduling",
-                    patient_name=(ctx.patient_metadata or {}).get("name"),
-                    reason=f"Paciente avançou na campanha {campaign.nome} e quer agendar",
-                    specialty_needed=campaign.especialidade,
-                    context=handoff_context,
-                )
                 handoff_target = "scheduling"
                 # O handoff para agendamento é interno: o paciente deve receber
                 # a próxima mensagem já do fluxo de agenda, sem "te encaminhar".
@@ -167,8 +229,15 @@ class CampaignAgent(BaseAgent):
                 logger.info("[CAMPAIGN] Sessão encerrada | patient=%s | campaign=%s", patient_name, campaign.nome)
 
         logger.info(
-            "[CAMPAIGN] Result | patient=%s | campaign=%s | handoff=%s | done=%s | replied=%s",
-            patient_name, campaign.nome, handoff_target or "Nenhum", done, bool(reply),
+            "[CAMPAIGN] Result | patient=%s | campaign=%s | handoff=%s | flow=%s/%s | combo=%s | done=%s | replied=%s",
+            patient_name,
+            campaign.nome,
+            handoff_target or "Nenhum",
+            ctx.flow_type,
+            ctx.flow_stage,
+            ctx.combo_id,
+            done,
+            bool(reply),
         )
 
         return AgentResult(

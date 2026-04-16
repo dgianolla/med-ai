@@ -1,16 +1,24 @@
+import json
 import logging
 from anthropic import AsyncAnthropic
 
 from config import get_settings
 from db.models import SessionContext, AgentResult, HandoffPayload
 from agents.base_agent import BaseAgent
+from agents.handoff_utils import (
+    build_combo_scheduling_handoff,
+    build_consultation_scheduling_handoff,
+    set_combo_flow,
+    set_consultation_flow,
+)
 from agents.prompt_loader import load_prompt
 from knowledge.tools import TOOLS as KNOWLEDGE_TOOLS, get_clinic_info
 from knowledge.service import get_knowledge
+from tools.commercial_tools import TOOLS as COMMERCIAL_TOOLS, confirm_combo
 
 logger = logging.getLogger(__name__)
 
-ALL_TOOLS = KNOWLEDGE_TOOLS
+ALL_TOOLS = KNOWLEDGE_TOOLS + COMMERCIAL_TOOLS
 
 _SCHEDULING_HANDOFF_PHRASES = [
     "vou te encaminhar para agendamento", "agente de agendamento",
@@ -82,6 +90,8 @@ class CommercialAgent(BaseAgent):
 
         messages = self._build_history(ctx)
 
+        confirmed_combo: dict | None = None
+
         # Loop agentico para suportar tools
         for _ in range(5):
             response = await client.messages.create(
@@ -93,11 +103,9 @@ class CommercialAgent(BaseAgent):
                 messages=messages,
             )
 
-            # Claude quer usar uma tool
             if response.stop_reason == "tool_use":
                 messages.append({"role": "assistant", "content": response.content})
 
-                import json
                 tool_results = []
                 for block in response.content:
                     if block.type != "tool_use":
@@ -105,6 +113,14 @@ class CommercialAgent(BaseAgent):
 
                     if block.name == "get_clinic_info":
                         result = await get_clinic_info(block.input["query"])
+                    elif block.name == "confirm_combo":
+                        result = confirm_combo(block.input["combo_id"])
+                        if result.get("ok"):
+                            confirmed_combo = result
+                            logger.info(
+                                "[COMMERCIAL] Combo confirmado | patient=%s | combo=%s | specialty=%s",
+                                patient_name, result["combo_id"], result.get("consultation_specialty"),
+                            )
                     else:
                         result = {"error": f"Tool desconhecida: {block.name}"}
 
@@ -117,7 +133,6 @@ class CommercialAgent(BaseAgent):
                 messages.append({"role": "user", "content": tool_results})
                 continue
 
-            # Claude terminou — extrai resposta de texto
             reply = next(
                 (b.text for b in response.content if hasattr(b, "text")),
                 None,
@@ -128,39 +143,31 @@ class CommercialAgent(BaseAgent):
 
         handoff_target = None
         handoff_payload = None
-        patient_name = (ctx.patient_metadata or {}).get("name")
         done = False
 
-        if reply:
+        # Prioridade 1: combo confirmado via tool → handoff estruturado para scheduling
+        if confirmed_combo and confirmed_combo.get("consultation_included"):
+            set_combo_flow(ctx, confirmed_combo["combo_id"])
+
+            handoff_target = "scheduling"
+            handoff_payload = build_combo_scheduling_handoff(
+                ctx,
+                patient_name=patient_name,
+                reason=f"Combo confirmado: {confirmed_combo['name']} — etapa de consulta ({confirmed_combo['consultation_specialty']})",
+                source_agent="commercial",
+                combo=confirmed_combo,
+            )
+
+        elif reply:
             reply_lower = reply.lower()
-
-            # Detecta se acabou de enviar info de checkup e deve handoff automático para exames
-            is_checkup_response = any(kw in reply_lower for kw in [
-                "checkup", "combo mulher", "combo homem", "combo idoso",
-                "combo pediatria", "combo cardiologista", "r$ 279", "r$ 370",
-                "r$ 489", "r$ 599", "r$ 464",
-            ])
-
-            if is_checkup_response:
-                # Handoff invisível para o agente de exames
-                handoff_target = "exams"
-                handoff_payload = HandoffPayload(
-                    type="to_exams",
-                    patient_name=patient_name,
-                    reason="Paciente recebeu info de checkup e será atendido pelo agente de exames",
-                    context={
-                        "auto_handoff_from_commercial": True,
-                        "checkup_packages_sent": True,
-                        **(ctx.handoff_payload.context if ctx.handoff_payload and ctx.handoff_payload.context else {}),
-                    },
-                )
-                logger.info("[COMMERCIAL] Auto-handoff → exams (checkup) | patient=%s", patient_name)
-            elif any(p in reply_lower for p in _SCHEDULING_HANDOFF_PHRASES):
+            if any(p in reply_lower for p in _SCHEDULING_HANDOFF_PHRASES):
+                set_consultation_flow(ctx)
                 handoff_target = "scheduling"
-                handoff_payload = HandoffPayload(
-                    type="to_scheduling",
+                handoff_payload = build_consultation_scheduling_handoff(
+                    ctx,
                     patient_name=patient_name,
                     reason="Paciente quer agendar consulta após atendimento comercial",
+                    source_agent="commercial",
                 )
                 logger.info("[COMMERCIAL] Handoff → scheduling | patient=%s", patient_name)
             elif any(p in reply_lower for p in _DONE_PHRASES):
@@ -168,8 +175,12 @@ class CommercialAgent(BaseAgent):
                 logger.info("[COMMERCIAL] Sessão encerrada | patient=%s", patient_name)
 
         logger.info(
-            "[COMMERCIAL] Resposta | patient=%s | handoff=%s | done=%s",
-            patient_name, handoff_target or "Nenhum", done,
+            "[COMMERCIAL] Resposta | patient=%s | handoff=%s | flow=%s/%s | combo=%s | done=%s",
+            patient_name,
+            handoff_target or "Nenhum",
+            ctx.flow_type, ctx.flow_stage,
+            ctx.combo_id,
+            done,
         )
 
         return AgentResult(

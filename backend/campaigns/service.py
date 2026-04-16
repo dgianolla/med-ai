@@ -68,6 +68,8 @@ class CampaignService:
 
         self._cache.clear()
         for md_file in sorted(CAMPAIGNS_DIR.glob("*.md")):
+            if md_file.name.startswith("_"):
+                continue
             try:
                 raw = md_file.read_text(encoding="utf-8")
                 fm, body = self._parse_frontmatter(raw)

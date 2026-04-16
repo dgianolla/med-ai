@@ -93,6 +93,31 @@ class SchedulingAgent(BaseAgent):
                 f"não volte a perguntar qual especialidade o paciente quer."
             )
 
+        # Combo em curso → esta é a etapa de CONSULTA do combo
+        if ctx.handoff_payload and ctx.handoff_payload.combo_id:
+            combo_ctx = ctx.handoff_payload.context or {}
+            combo_name = combo_ctx.get("combo_name", ctx.handoff_payload.combo_id)
+            system += (
+                f"\n\n## CONTEXTO DE COMBO\n"
+                f"O paciente fechou o combo: **{combo_name}** (id: {ctx.handoff_payload.combo_id}).\n"
+                f"Sua tarefa aqui é agendar apenas a ETAPA DE CONSULTA desse combo — "
+                f"não é uma consulta avulsa. A especialidade da consulta já veio resolvida "
+                f"pelo combo e NÃO deve ser perguntada novamente ao paciente."
+            )
+            if combo_ctx.get("collection_schedule_required"):
+                system += (
+                    f"\nEste combo também tem etapa de COLETA DE EXAMES que será agendada "
+                    f"em um momento separado. Não tente marcar a coleta aqui — apenas a consulta. "
+                    f"Se o paciente perguntar sobre a coleta, diga que depois de fechar o horário "
+                    f"da consulta a gente combina a coleta."
+                )
+            # Particular é o default para combos (são produtos fechados)
+            if not combo_ctx.get("convenio"):
+                system += (
+                    f"\nCombos são sempre atendimento particular. "
+                    f"Não pergunte convênio para este atendimento."
+                )
+
         # Injeta contexto acumulado de handoffs anteriores
         if ctx.handoff_payload and ctx.handoff_payload.context:
             context = ctx.handoff_payload.context
