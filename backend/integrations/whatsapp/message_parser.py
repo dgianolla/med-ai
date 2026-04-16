@@ -1,6 +1,10 @@
 from datetime import datetime
 from db.models import IncomingMessage, MessageType
 from phone_utils import normalize_brazil_phone
+import logging
+
+
+logger = logging.getLogger(__name__)
 
 
 def _normalize_phone(raw: str) -> str:
@@ -36,6 +40,10 @@ def parse_webhook(body: dict) -> IncomingMessage | None:
 
     # Ignorar se não há mensagem
     if not last_message:
+        logger.warning(
+            "[WEBHOOK_PARSE] Ignorado: payload sem lastMessage | keys=%s",
+            sorted(body.keys()),
+        )
         return None
 
     raw_type = last_message.get("type") or "TEXT"
@@ -53,16 +61,44 @@ def parse_webhook(body: dict) -> IncomingMessage | None:
         text = f"[{msg_type.upper()}]"  # placeholder até processar
 
     if msg_type == "text" and not text.strip():
+        logger.warning(
+            "[WEBHOOK_PARSE] Ignorado: texto vazio | sessionId=%s | lastMessageKeys=%s",
+            body.get("sessionId", ""),
+            sorted(last_message.keys()),
+        )
         return None
 
     raw_phone = contact.get("phonenumber", "")
     if not raw_phone:
+        logger.warning(
+            "[WEBHOOK_PARSE] Ignorado: contact.phonenumber ausente | sessionId=%s | contactKeys=%s | bodyKeys=%s",
+            body.get("sessionId", ""),
+            sorted(contact.keys()) if isinstance(contact, dict) else [],
+            sorted(body.keys()),
+        )
         return None
+
+    normalized_phone = _normalize_phone(raw_phone)
+    if not normalized_phone:
+        logger.warning(
+            "[WEBHOOK_PARSE] Ignorado: telefone não normalizado | raw_phone=%s | sessionId=%s",
+            raw_phone,
+            body.get("sessionId", ""),
+        )
+        return None
+
+    logger.info(
+        "[WEBHOOK_PARSE] OK | sessionId=%s | phone=%s | type=%s | text=%.80s",
+        body.get("sessionId", ""),
+        normalized_phone,
+        msg_type,
+        text.strip(),
+    )
 
     return IncomingMessage(
         wts_session_id=body.get("sessionId", ""),
         wts_message_id=last_message.get("id", ""),
-        patient_phone=_normalize_phone(raw_phone),
+        patient_phone=normalized_phone,
         patient_name=contact.get("name"),
         wts_contact_id=str(contact.get("id", "")),
         message_type=msg_type,

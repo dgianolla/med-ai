@@ -98,7 +98,21 @@ async def _find_active_confirmation(message: IncomingMessage) -> dict[str, Any] 
             raise
 
         if res.data:
+            logger.info(
+                "[CONFIRMATION] Match encontrado | lookup=%s | value=%s | confirmation_id=%s | appointment_id=%s | status=%s",
+                column,
+                value,
+                res.data[0]["id"],
+                res.data[0]["appointment_id"],
+                res.data[0]["status"],
+            )
             return res.data[0]
+
+        logger.info(
+            "[CONFIRMATION] Nenhum match | lookup=%s | value=%s",
+            column,
+            value,
+        )
 
     return None
 

@@ -13,8 +13,19 @@ async def _process_message(body: dict):
     from integrations.whatsapp import get_whatsapp_client
     from orchestrator.orchestrator import dispatch
 
+    logger.info(
+        "[WEBHOOK] Background start | sessionId=%s | keys=%s",
+        body.get("sessionId", ""),
+        sorted(body.keys()),
+    )
+
     incoming = parse_webhook(body)
     if not incoming:
+        logger.warning(
+            "[WEBHOOK] Payload ignorado pelo parser | sessionId=%s | keys=%s",
+            body.get("sessionId", ""),
+            sorted(body.keys()),
+        )
         return
 
     logger.info(
@@ -62,6 +73,12 @@ async def receive_message(request: Request, background_tasks: BackgroundTasks):
         body = await request.json()
     except Exception:
         raise HTTPException(status_code=400, detail="Payload inválido")
+
+    logger.info(
+        "[WEBHOOK] Request recebida | sessionId=%s | keys=%s",
+        body.get("sessionId", ""),
+        sorted(body.keys()) if isinstance(body, dict) else [],
+    )
 
     # Responde 200 imediatamente para o wts.chat não retentar
     background_tasks.add_task(_process_message, body)
