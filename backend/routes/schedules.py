@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 class TriggerRequest(BaseModel):
-    delay_seconds: int = 10
+    delay_seconds: int = 300
     target_date: Optional[str] = None  # YYYY-MM-DD (defaults to tomorrow)
 
 

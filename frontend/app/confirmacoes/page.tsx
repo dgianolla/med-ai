@@ -22,7 +22,7 @@ function getErrorMessage(error: unknown, fallback: string) {
 
 export default function ConfirmationsPage() {
   const { success, error, info } = useToast();
-  const [delay, setDelay] = useState(10);
+  const [delay, setDelay] = useState(300);
   const [targetDate, setTargetDate] = useState("");
   const [confirmations, setConfirmations] = useState<Confirmation[]>([]);
   const [loading, setLoading] = useState(false);
