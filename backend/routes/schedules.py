@@ -135,7 +135,7 @@ async def _dispatch_confirmations(schedules: list, delay_seconds: int):
                         appointment_id,
                     )
                     try:
-                        await trigger_confirmation_chatbot()
+                        await trigger_confirmation_chatbot(phone)
                     except Exception as e:
                         logger.error(
                             "[DISPATCH] %d/%d falha ao acionar Helena | appointment_id=%s | erro=%s",
