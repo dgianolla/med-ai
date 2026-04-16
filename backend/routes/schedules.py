@@ -9,6 +9,7 @@ from db.client import get_supabase
 from integrations.scheduling_api import get_agenda
 from integrations.whatsapp.wts_client import get_whatsapp_client
 from config import get_settings
+from phone_utils import normalize_brazil_phone
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -72,7 +73,7 @@ async def _dispatch_confirmations(schedules: list, delay_seconds: int):
         for idx, sched in enumerate(schedules, start=1):
             appointment_id = sched.get("id")
             try:
-                phone = (sched.get("telefonePrincipal") or "").strip()
+                phone = normalize_brazil_phone(sched.get("telefonePrincipal"))
                 if not phone:
                     skipped_count += 1
                     logger.info("[DISPATCH] %d/%d pulado (sem telefone) | appointment_id=%s", idx, total, appointment_id)
@@ -83,9 +84,6 @@ async def _dispatch_confirmations(schedules: list, delay_seconds: int):
                     skipped_count += 1
                     logger.info("[DISPATCH] %d/%d pulado (status=%s) | appointment_id=%s", idx, total, existing.data[0]["status"], appointment_id)
                     continue
-
-                if not phone.startswith("55"):
-                    phone = "55" + phone
 
                 row = {
                     "session_id": f"conf_{phone}",
@@ -201,7 +199,7 @@ async def preview_schedules(date: str):
         skipped_no_phone = 0
         for sched in schedules:
             app_id = sched.get("id")
-            phone = sched.get("telefonePrincipal", "")
+            phone = normalize_brazil_phone(sched.get("telefonePrincipal"))
             if not phone:
                 skipped_no_phone += 1
                 continue # Pula se nao tiver telefone

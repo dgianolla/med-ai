@@ -2,6 +2,7 @@ import logging
 import httpx
 from .base_client import WhatsAppClient
 from config import get_settings
+from phone_utils import normalize_brazil_phone
 
 logger = logging.getLogger(__name__)
 
@@ -59,8 +60,9 @@ class WtsClient(WhatsAppClient):
         text: str,
         from_channel_id: str,
     ) -> str:
+        normalized_phone = normalize_brazil_phone(to_phone)
         payload = {
-            "To": to_phone,
+            "To": normalized_phone,
             "Body": {"text": text},
             "From": from_channel_id,
         }

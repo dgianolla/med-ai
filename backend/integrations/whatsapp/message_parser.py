@@ -1,5 +1,6 @@
 from datetime import datetime
 from db.models import IncomingMessage, MessageType
+from phone_utils import normalize_brazil_phone
 
 
 def _normalize_phone(raw: str) -> str:
@@ -8,11 +9,7 @@ def _normalize_phone(raw: str) -> str:
     Entrada: "+55|11988579353" ou "5511988579353"
     Saída:   "5511988579353"
     """
-    phone = raw.replace("+55|", "").replace("+", "").replace("-", "").replace(" ", "")
-    # Garante que começa com 55 (Brasil)
-    if not phone.startswith("55"):
-        phone = "55" + phone
-    return phone
+    return normalize_brazil_phone(raw)
 
 
 def _detect_type(raw_type: str) -> MessageType:
