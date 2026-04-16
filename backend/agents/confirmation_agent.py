@@ -203,3 +203,21 @@ async def handle_confirmation(message: IncomingMessage) -> dict[str, Any] | None
         "reply": reply,
         "is_final": new_status in {"confirmed", "canceled"},
     }
+
+
+async def handle_confirmation_channel_message(message: IncomingMessage) -> dict[str, Any]:
+    """
+    Trata mensagens recebidas no canal exclusivo de confirmações.
+    Nunca delega para o orquestrador normal.
+    """
+    result = await handle_confirmation(message)
+    if result:
+        return result
+
+    return {
+        "handled": True,
+        "intent": "fora_de_contexto",
+        "status": "ignored",
+        "reply": _build_out_of_context_reply(message.patient_name),
+        "is_final": False,
+    }
