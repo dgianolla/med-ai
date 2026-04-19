@@ -36,6 +36,8 @@ class Settings(BaseSettings):
     port: int = 8000
     environment: str = "development"
     session_ttl_seconds: int = 1800
+    message_buffer_seconds: int = 10
+    message_buffer_ttl_seconds: int = 120
     webhook_secret: str = ""
 
     class Config:

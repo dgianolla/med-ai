@@ -1,11 +1,13 @@
 import logging
 from datetime import datetime, timezone
+from typing import Sequence
 
 from db.models import IncomingMessage, AgentResult, SessionContext
 from db.client import get_supabase
 from orchestrator.session_manager import get_session_manager
 from orchestrator.router import should_handoff
 from integrations.whatsapp import get_whatsapp_client
+from services.message_buffer import BufferedMessageFragment
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +49,20 @@ async def _persist_message(
         }).execute()
     except Exception as e:
         logger.error("Erro ao persistir mensagem: %s", e)
+
+
+def _apply_buffered_media(ctx: SessionContext, fragments: Sequence[BufferedMessageFragment]) -> None:
+    file_urls = [
+        fragment.file_url
+        for fragment in fragments
+        if fragment.message_type in ("image", "pdf", "file") and fragment.file_url
+    ]
+    if not file_urls:
+        return
+
+    existing = ctx.exam_content
+    existing_urls = existing if isinstance(existing, list) else ([existing] if existing else [])
+    ctx.exam_content = existing_urls + file_urls
 
 
 async def _persist_session(ctx: SessionContext) -> None:
@@ -95,7 +111,10 @@ async def _ensure_patient(ctx: SessionContext, incoming: IncomingMessage) -> str
         return None
 
 
-async def dispatch(incoming: IncomingMessage) -> None:
+async def dispatch(
+    incoming: IncomingMessage,
+    buffered_fragments: Sequence[BufferedMessageFragment] | None = None,
+) -> None:
     """
     Loop central de orquestração.
     1. Carrega ou cria sessão
@@ -131,31 +150,43 @@ async def dispatch(incoming: IncomingMessage) -> None:
     # 3. Garante sessão no Supabase ANTES de inserir mensagens (FK constraint)
     await _persist_session(ctx)
 
-    # 4. Appenda mensagem do paciente ao histórico
+    # 4. Persiste fragmentos originais e adiciona apenas a versão consolidada ao histórico do agente
+    if buffered_fragments:
+        for fragment in buffered_fragments:
+            await _persist_message(
+                session_id=ctx.session_id,
+                wts_message_id=fragment.wts_message_id,
+                agent_id="user",
+                role="user",
+                message_type=fragment.message_type,
+                content=fragment.text,
+                file_url=fragment.file_url,
+            )
+        _apply_buffered_media(ctx, buffered_fragments)
+    else:
+        await _persist_message(
+            session_id=ctx.session_id,
+            wts_message_id=incoming.wts_message_id,
+            agent_id="user",
+            role="user",
+            message_type=incoming.message_type,
+            content=incoming.text,
+            file_url=incoming.file_url,
+        )
+        _apply_buffered_media(
+            ctx,
+            [
+                BufferedMessageFragment(
+                    wts_message_id=incoming.wts_message_id,
+                    message_type=incoming.message_type,
+                    text=incoming.text,
+                    file_url=incoming.file_url,
+                    received_at=incoming.received_at,
+                )
+            ],
+        )
+
     sm.append_message(ctx, "user", incoming.text)
-
-    # Persiste mensagem do paciente
-    await _persist_message(
-        session_id=ctx.session_id,
-        wts_message_id=incoming.wts_message_id,
-        agent_id="user",
-        role="user",
-        message_type=incoming.message_type,
-        content=incoming.text,
-        file_url=incoming.file_url,
-    )
-
-    # Se mensagem tem mídia (imagem/PDF), salva file_url no contexto para o agente de Exames
-    # Preserva exames anteriores acumulando em lista
-    if incoming.message_type in ("image", "pdf", "file") and incoming.file_url:
-        if ctx.exam_content:
-            # Já tinha exame — acumula
-            if isinstance(ctx.exam_content, list):
-                ctx.exam_content.append(incoming.file_url)
-            else:
-                ctx.exam_content = [ctx.exam_content, incoming.file_url]
-        else:
-            ctx.exam_content = incoming.file_url
 
     # 3.5. Router inteligente: detecta se a mensagem pertence a outro agente
     target_agent = should_handoff(ctx.current_agent, incoming.text)

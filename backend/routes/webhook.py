@@ -1,6 +1,7 @@
 import logging
 from fastapi import APIRouter, Request, HTTPException, BackgroundTasks
 from integrations.whatsapp import parse_webhook
+from services.message_buffer import get_message_buffer_service
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -60,7 +61,16 @@ async def _process_message(body: dict):
             logger.error("Erro ao enviar resposta de confirmação via wts.chat: %s", e)
         return
 
-    await dispatch(incoming)
+    try:
+        buffer_service = get_message_buffer_service()
+        await buffer_service.buffer_and_schedule(incoming)
+    except Exception as e:
+        logger.error(
+            "[WEBHOOK] Falha no buffer Redis; fazendo fallback para dispatch imediato: %s",
+            e,
+            exc_info=True,
+        )
+        await dispatch(incoming)
 
 
 @router.post("/webhook/message")
