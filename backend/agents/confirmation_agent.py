@@ -9,11 +9,12 @@ from postgrest.exceptions import APIError
 from config import get_settings
 from db.client import get_supabase
 from db.models import IncomingMessage
+from integrations.helena_client import complete_session
 from integrations.scheduling_api import cancel_appointment, confirm_appointment
 
 logger = logging.getLogger(__name__)
 
-CONFIRMATION_INTENTS = {"sim", "nao", "remarcar", "fora_de_contexto"}
+CONFIRMATION_INTENTS = {"sim", "nao", "remarcar", "alterar", "fora_de_contexto"}
 
 _CLINIC_WHATSAPP = "(15) 99695-0709"
 
@@ -28,7 +29,7 @@ def _fallback_classify(text: str) -> str:
         r"\b(n[aã]o|nao vou|n[aã]o consigo|n[aã]o poderei|n[aã]o posso|cancelar|cancela|cancelo)\b",
     ]
     remarcar_patterns = [
-        r"\b(remarcar|remarca[cç][aã]o|reagendar|reagendamento|trocar horario|trocar horário|outro horario|outro horário)\b",
+        r"\b(remarcar|remarca[cç][aã]o|reagendar|reagendamento|alterar|alteracao|alteração|trocar horario|trocar horário|outro horario|outro horário)\b",
     ]
 
     if any(re.search(p, text) for p in nao_patterns):
@@ -54,13 +55,19 @@ def _fallback_reply(intent: str, patient_name: str | None) -> str:
             "Registramos que você não poderá comparecer.\n"
             f"Se quiser remarcar, fale com a clínica pelo WhatsApp: 📲 {_CLINIC_WHATSAPP}"
         )
-    if intent == "remarcar":
+    if intent in {"remarcar", "alterar"}:
         return (
             f"Sem problema, {name}.\n\n"
-            "Para remarcar sua consulta, fale com a clínica pelo WhatsApp:\n"
+            "Para alterar sua consulta, fale com a clínica pelo WhatsApp:\n"
             f"📲 {_CLINIC_WHATSAPP}"
         )
     return _build_out_of_context_reply(patient_name)
+
+
+def _normalize_confirmation_intent(intent: str | None) -> str:
+    if intent == "remarcar":
+        return "alterar"
+    return intent or "fora_de_contexto"
 
 
 async def _classify_confirmation_response(text: str, patient_name: str | None) -> dict[str, str]:
@@ -70,16 +77,16 @@ async def _classify_confirmation_response(text: str, patient_name: str | None) -
     system = (
         "Você responde pacientes em um canal exclusivo de confirmação de consultas. "
         "Receberá uma resposta curta após a mensagem: SIM para confirmar, NÃO para não comparecer, "
-        "REMARCAR para alterar horário, ou algo fora de contexto. "
+        "ALTERAR para mudar data ou horário, ou algo fora de contexto. "
         "Sua tarefa é retornar APENAS JSON válido com as chaves intent e reply. "
-        "Rótulos permitidos: sim, nao, remarcar, fora_de_contexto. "
+        "Rótulos permitidos: sim, nao, alterar, fora_de_contexto. "
         "- sim: o paciente confirma que vai comparecer (ex.: 'sim', 'confirmo', 'ok', 'estarei aí'). "
         "- nao: o paciente diz que não vai comparecer ou quer cancelar. "
-        "- remarcar: o paciente quer alterar horário/data ou remarcar. "
+        "- alterar: o paciente quer alterar horário/data, remarcar ou reagendar. "
         "- fora_de_contexto: qualquer outra coisa — dúvidas, saudações, reclamações, "
         "áudios/imagens ou assuntos não relacionados. "
         "A reply deve seguir o tom da mensagem original: cordial, objetiva e curta. "
-        "Para remarcar ou fora_de_contexto, direcione para o WhatsApp da clínica "
+        "Para alterar ou fora_de_contexto, direcione para o WhatsApp da clínica "
         f"{_CLINIC_WHATSAPP}. "
         "Não invente informações. Não use markdown complexo."
     )
@@ -88,9 +95,9 @@ async def _classify_confirmation_response(text: str, patient_name: str | None) -
         f"Nome do paciente: {patient_name or 'Paciente'}\n"
         "Mensagem de contexto enviada ao paciente:\n"
         "\"Por favor, responda conforme abaixo: SIM para confirmar presença, "
-        "NÃO caso não possa comparecer, REMARCAR para alterar o horário.\"\n\n"
+        "NÃO caso não possa comparecer, ALTERAR para mudar data ou horário.\"\n\n"
         f"Resposta do paciente: {text}\n\n"
-        'Formato obrigatório: {"intent":"sim|nao|remarcar|fora_de_contexto","reply":"..."}'
+        'Formato obrigatório: {"intent":"sim|nao|alterar|fora_de_contexto","reply":"..."}'
     )
 
     response = await client.messages.create(
@@ -103,7 +110,7 @@ async def _classify_confirmation_response(text: str, patient_name: str | None) -
 
     reply = next((block.text for block in response.content if hasattr(block, "text")), "")
     payload = json.loads(reply)
-    intent = payload.get("intent")
+    intent = _normalize_confirmation_intent(payload.get("intent"))
     if intent not in CONFIRMATION_INTENTS:
         raise ValueError(f"Intent inválida retornada pela LLM: {intent}")
     final_reply = (payload.get("reply") or "").strip()
@@ -112,17 +119,69 @@ async def _classify_confirmation_response(text: str, patient_name: str | None) -
     return {"intent": intent, "reply": final_reply}
 
 
+async def _update_confirmation(fields: dict[str, Any], confirmation_id: str) -> None:
+    db = await get_supabase()
+    await db.table("schedule_confirmations").update(fields).eq("id", confirmation_id).execute()
+
+
+async def _persist_helena_session_id(active: dict[str, Any], message: IncomingMessage) -> str:
+    current_session_id = (active.get("helena_session_id") or "").strip()
+    incoming_session_id = (message.wts_session_id or "").strip()
+
+    if current_session_id or not incoming_session_id:
+        return current_session_id
+
+    try:
+        await _update_confirmation({"helena_session_id": incoming_session_id}, active["id"])
+        active["helena_session_id"] = incoming_session_id
+        logger.info(
+            "[CONFIRMATION] helena_session_id persistido | confirmation_id=%s | session_id=%s",
+            active["id"],
+            incoming_session_id,
+        )
+        return incoming_session_id
+    except Exception as e:
+        logger.error(
+            "[CONFIRMATION] Erro ao persistir helena_session_id | confirmation_id=%s | session_id=%s | erro=%s",
+            active["id"],
+            incoming_session_id,
+            e,
+            exc_info=True,
+        )
+        return incoming_session_id
+
+
+async def _complete_helena_confirmation_session(session_id: str | None, appointment_id: str | None) -> None:
+    if not session_id:
+        logger.warning(
+            "[CONFIRMATION] Sessão Helena ausente; conclusão ignorada | appointment_id=%s",
+            appointment_id,
+        )
+        return
+
+    try:
+        await complete_session(session_id, reactivate_on_new_message=False, stop_bot_in_execution=True)
+    except Exception as e:
+        logger.error(
+            "[CONFIRMATION] Falha ao concluir sessão Helena | appointment_id=%s | session_id=%s | erro=%s",
+            appointment_id,
+            session_id,
+            e,
+            exc_info=True,
+        )
+
+
 async def _find_active_confirmation(message: IncomingMessage) -> dict[str, Any] | None:
     db = await get_supabase()
 
-    for column, value in (("session_id", message.wts_session_id), ("patient_phone", message.patient_phone)):
+    for column, value in (("helena_session_id", message.wts_session_id), ("patient_phone", message.patient_phone)):
         if not value:
             continue
 
         try:
             res = await (
                 db.table("schedule_confirmations")
-                .select("id, session_id, patient_phone, patient_name, status, appointment_id")
+                .select("id, session_id, helena_session_id, patient_phone, patient_name, status, appointment_id")
                 .eq(column, value)
                 .in_("status", ["pending", "sent"])
                 .order("created_at", desc=True)
@@ -180,6 +239,7 @@ async def handle_confirmation(message: IncomingMessage) -> dict[str, Any] | None
 
     appointment_id = active.get("appointment_id")
     patient_name = active.get("patient_name")
+    helena_session_id = await _persist_helena_session_id(active, message)
 
     try:
         llm_result = await _classify_confirmation_response(message.text, patient_name)
@@ -187,7 +247,7 @@ async def handle_confirmation(message: IncomingMessage) -> dict[str, Any] | None
         reply = llm_result["reply"]
     except Exception as e:
         logger.warning("Falha ao processar confirmação com LLM, usando fallback: %s", e)
-        intent = _fallback_classify(message.text)
+        intent = _normalize_confirmation_intent(_fallback_classify(message.text))
         reply = _fallback_reply(intent, patient_name)
 
     if intent == "sim":
@@ -212,7 +272,7 @@ async def handle_confirmation(message: IncomingMessage) -> dict[str, Any] | None
             )
         new_status = "canceled"
 
-    elif intent == "remarcar":
+    elif intent == "alterar":
         new_status = "sent"
 
     else:  # fora_de_contexto
@@ -220,10 +280,12 @@ async def handle_confirmation(message: IncomingMessage) -> dict[str, Any] | None
 
     if new_status != active.get("status"):
         try:
-            db = await get_supabase()
-            await db.table("schedule_confirmations").update({"status": new_status}).eq("id", active["id"]).execute()
+            await _update_confirmation({"status": new_status}, active["id"])
         except Exception as e:
             logger.error("Erro ao atualizar status da confirmação %s: %s", active["id"], e)
+
+    if intent in {"sim", "nao", "alterar"}:
+        await _complete_helena_confirmation_session(helena_session_id, appointment_id)
 
     logger.info(
         "[CONFIRMATION] processada | appointment_id=%s | phone=%s | intent=%s | status=%s | text=%s",
@@ -239,7 +301,7 @@ async def handle_confirmation(message: IncomingMessage) -> dict[str, Any] | None
         "intent": intent,
         "status": new_status,
         "reply": reply,
-        "is_final": new_status in {"confirmed", "canceled"},
+        "is_final": intent in {"sim", "nao", "alterar"},
     }
 
 

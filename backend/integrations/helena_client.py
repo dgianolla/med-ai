@@ -8,6 +8,17 @@ from phone_utils import normalize_brazil_phone
 logger = logging.getLogger(__name__)
 
 
+def _helena_headers() -> dict[str, str]:
+    settings = get_settings()
+    headers = {
+        "accept": "application/json",
+        "content-type": "application/*+json",
+    }
+    if settings.wts_api_key:
+        headers["Authorization"] = f"Bearer {settings.wts_api_key}"
+    return headers
+
+
 async def trigger_confirmation_chatbot(to_phone: str) -> None:
     """
     Ativa o chatbot da Helena responsável por capturar as respostas no fluxo
@@ -32,13 +43,6 @@ async def trigger_confirmation_chatbot(to_phone: str) -> None:
         logger.warning("[HELENA] Telefone de destino ausente/inválido; pulando trigger")
         return
 
-    headers = {
-        "accept": "application/json",
-        "content-type": "application/*+json",
-    }
-    if settings.wts_api_key:
-        headers["Authorization"] = f"Bearer {settings.wts_api_key}"
-
     payload = {
         "botKey": chatbot_id,
         "from": from_phone,
@@ -48,7 +52,7 @@ async def trigger_confirmation_chatbot(to_phone: str) -> None:
     async with httpx.AsyncClient(timeout=15) as client:
         response = await client.post(
             send_url,
-            headers=headers,
+            headers=_helena_headers(),
             json=payload,
         )
         response.raise_for_status()
@@ -59,3 +63,38 @@ async def trigger_confirmation_chatbot(to_phone: str) -> None:
         from_phone,
         normalized_to_phone,
     )
+
+
+async def complete_session(
+    session_id: str,
+    *,
+    reactivate_on_new_message: bool = False,
+    stop_bot_in_execution: bool = True,
+) -> dict:
+    """Conclui uma sessão da Helena e interrompe o chatbot atual."""
+    settings = get_settings()
+    session_id = (session_id or "").strip()
+    if not session_id:
+        raise ValueError("session_id é obrigatório para concluir a sessão Helena")
+
+    payload = {
+        "reactivateOnNewMessage": reactivate_on_new_message,
+        "stopBotInExecution": stop_bot_in_execution,
+    }
+
+    async with httpx.AsyncClient(timeout=15) as client:
+        response = await client.put(
+            f"{settings.helena_api_base_url}/chat/v1/session/{session_id}/complete",
+            headers=_helena_headers(),
+            json=payload,
+        )
+        response.raise_for_status()
+        data = response.json()
+
+    logger.info(
+        "[HELENA] Sessão concluída | session_id=%s | stop_bot_in_execution=%s | reactivate_on_new_message=%s",
+        session_id,
+        stop_bot_in_execution,
+        reactivate_on_new_message,
+    )
+    return data

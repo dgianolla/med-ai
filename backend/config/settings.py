@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     wts_confirmation_from_phone: str = ""
 
     # wts.chat chatbot trigger
+    helena_api_base_url: str = "https://api.helena.run"
     wts_chatbot_send_url: str = "https://api.helena.run/chat/v1/chatbot/send"
     wts_confirmation_chatbot_id: str = ""
     wts_confirmation_trigger_delay_seconds: int = 3
