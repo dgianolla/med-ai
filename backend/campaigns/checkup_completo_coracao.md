@@ -1,7 +1,19 @@
 ---
-nome: Campanha Check-up Completo do Coração
+campaign_id: checkup_completo_coracao
+campaign_name: Campanha Check-up Completo do Coração
+status: active
+priority: 50
+source: meta_ads
 especialidade: Cardiologia
-valor: R$ 374,17 (Consulta cardiológica + eletrocardiograma + 12 exames laboratoriais)
+offer_anchor: R$ 374,17 (Consulta cardiológica + eletrocardiograma + 12 exames laboratoriais)
+handoff_target: scheduling
+forbidden_promises:
+  - "Garantimos diagnóstico preciso"
+  - "Previne 100% infarto ou AVC"
+  - "Cura de problemas cardíacos"
+  - "Você pode morrer se não fizer"
+  - "É o mais barato de Sorocaba"
+  - "Resultado imediato sem confirmação operacional"
 ---
 
 ## Sobre a campanha

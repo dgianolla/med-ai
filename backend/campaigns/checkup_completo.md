@@ -1,7 +1,16 @@
 ---
-nome: Checkup Completo
+campaign_id: checkup_completo
+campaign_name: Checkup Completo
+status: active
+priority: 50
+source: meta_ads
 especialidade: Exames laboratoriais
-valor: R$ 104,48
+offer_anchor: R$ 104,48
+handoff_target: scheduling
+forbidden_promises:
+  - "Dizer que o pacote inclui consulta médica"
+  - "Prometer diagnóstico ou interpretação de resultados"
+  - "Informar valores diferentes de R$ 104,48 para este pacote"
 ---
 
 ## Sobre a campanha

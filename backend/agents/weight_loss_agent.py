@@ -7,25 +7,34 @@ from config import get_settings
 from db.models import SessionContext, AgentResult, HandoffPayload
 from agents.base_agent import BaseAgent
 from agents.prompt_loader import load_prompt
+from campaigns.service import get_campaign_service
+from prompts.composer import (
+    compose_agent_system,
+    extract_and_strip_conflicts,
+    format_campaign_block,
+    format_campaigns_index,
+    format_session_state,
+)
 from knowledge.tools import TOOLS as KNOWLEDGE_TOOLS, get_clinic_info
 from knowledge.service import get_knowledge
+from tools.campaign_tools import (
+    TOOLS as CAMPAIGN_TOOLS,
+    CAMPAIGN_TOOL_NAMES,
+    execute_campaign_tool,
+)
 from services.priority_leads import has_endocrino_availability, create_priority_lead
 
 logger = logging.getLogger(__name__)
 
-# Janela de dias úteis em que consideramos a agenda do endócrino "OK".
-# Se não tiver vaga até aí, o lead vai pra fila de encaixe manual.
 ENDOCRINO_AVAILABILITY_WINDOW_DAYS = 5
 
-# Mensagem padrão quando o lead vai pra fila de encaixe.
-# Não expõe que a agenda está cheia nem que existe uma "fila".
 PRIORITY_QUEUE_MESSAGE = (
     "Por conta da alta procura por esse tratamento, nossa equipe comercial vai "
     "entrar em contato com você o quanto antes para confirmar os melhores horários "
     "e te dar todas as orientações. Pode aguardar nosso retorno."
 )
 
-ALL_TOOLS = KNOWLEDGE_TOOLS
+ALL_TOOLS = KNOWLEDGE_TOOLS + CAMPAIGN_TOOLS
 
 _SCHEDULING_HANDOFF_PHRASES = [
     "vou te encaminhar para agendamento",
@@ -53,6 +62,35 @@ _OBJECTION_KEYWORDS = {
 }
 
 
+def _knowledge_facts() -> list[str]:
+    """Snapshot dinâmico de pagamento para L5."""
+    knowledge = get_knowledge()
+    facts: list[str] = []
+
+    payment = knowledge.get("clinic_info", "payment")
+    if payment:
+        installments = payment.get("installments", {})
+        facts.append(
+            f"pagamento: métodos={', '.join(payment.get('methods', []))} | "
+            f"PIX={payment.get('pix_key', 'N/A')} | "
+            f"exames/protocolos até {installments.get('exames_combos', '10x')} sem juros"
+        )
+
+    return facts
+
+
+def _lead_facts(ctx: SessionContext) -> list[str]:
+    """Fatos do lead (caneta_interesse, objeção, etc) para L5."""
+    if not ctx.patient_metadata:
+        return []
+    facts: list[str] = []
+    for k in ("caneta_interesse", "ja_usou_caneta", "objection", "ready_for_consult"):
+        val = ctx.patient_metadata.get(k)
+        if val:
+            facts.append(f"{k}: {val}")
+    return facts
+
+
 class WeightLossAgent(BaseAgent):
     """
     Agente dedicado a leads do protocolo de canetas injetáveis (Ozempic / Mounjaro).
@@ -71,36 +109,35 @@ class WeightLossAgent(BaseAgent):
         logger.info("[WEIGHT_LOSS] Iniciando | patient=%s (%s)", patient_name, ctx.patient_phone)
 
         now = datetime.now()
-        system = load_prompt("weight_loss").format(today=now.strftime("%Y-%m-%d"))
+        core_identity = load_prompt("weight_loss").format(today=now.strftime("%Y-%m-%d"))
 
-        knowledge = get_knowledge()
-        payment_info = knowledge.get("clinic_info", "payment")
-        if payment_info:
-            installments = payment_info.get("installments", {})
-            system += (
-                f"\n\n## PAGAMENTO (dados atualizados)\n"
-                f"Métodos: {', '.join(payment_info.get('methods', []))}\n"
-                f"PIX: {payment_info.get('pix_key', 'N/A')}\n"
-                f"Parcelamento de exames/protocolos: até {installments.get('exames_combos', '10x')} sem juros"
-            )
+        service = get_campaign_service()
 
-        if ctx.handoff_payload:
-            payload = ctx.handoff_payload
-            if payload.patient_name:
-                system += f"\n\nPaciente: {payload.patient_name}"
-            if payload.reason:
-                system += f"\nMotivo do encaminhamento: {payload.reason}"
-            ctx_extra = payload.context or {}
-            if ctx_extra.get("previous_agent"):
-                system += f"\nVeio do agente: {ctx_extra['previous_agent']}"
+        campaign_block = ""
+        campaign_id = None
+        if ctx.handoff_payload and ctx.handoff_payload.context:
+            campaign_name = ctx.handoff_payload.context.get("campaign_name")
+            if campaign_name:
+                campaign = service.get(campaign_name)
+                if campaign:
+                    campaign_block = format_campaign_block(campaign)
+                    campaign_id = campaign.campaign_id
 
-        if ctx.patient_metadata:
-            meta_lines = []
-            for k in ("caneta_interesse", "ja_usou_caneta", "objection", "ready_for_consult"):
-                if ctx.patient_metadata.get(k):
-                    meta_lines.append(f"{k}: {ctx.patient_metadata[k]}")
-            if meta_lines:
-                system += "\n\n## METADATA DO LEAD\n" + "\n".join(meta_lines)
+        extra_facts = _knowledge_facts() + _lead_facts(ctx)
+        session_metadata = format_session_state(ctx, extra_facts=extra_facts)
+
+        system, trace = compose_agent_system(
+            safety=load_prompt("_safety"),
+            core_identity=core_identity,
+            business_rules=load_prompt("_business_rules"),
+            campaigns_index=format_campaigns_index(service),
+            campaign_block=campaign_block,
+            session_metadata=session_metadata,
+        )
+        logger.info(
+            "[WEIGHT_LOSS] Trace | patient=%s | layers=%s | campaign_id=%s",
+            patient_name, trace["layers_present"], campaign_id,
+        )
 
         messages = self._build_history(ctx)
 
@@ -122,7 +159,9 @@ class WeightLossAgent(BaseAgent):
                 for block in response.content:
                     if block.type != "tool_use":
                         continue
-                    if block.name == "get_clinic_info":
+                    if block.name in CAMPAIGN_TOOL_NAMES:
+                        result = execute_campaign_tool(block.name, block.input)
+                    elif block.name == "get_clinic_info":
                         result = await get_clinic_info(block.input["query"])
                     else:
                         result = {"error": f"Tool desconhecida: {block.name}"}
@@ -138,7 +177,13 @@ class WeightLossAgent(BaseAgent):
             reply = next((b.text for b in response.content if hasattr(b, "text")), None)
             break
 
-        # Detecta lead metadata a partir da última mensagem do paciente
+        reply, conflicts = extract_and_strip_conflicts(reply)
+        if conflicts:
+            logger.warning(
+                "[WEIGHT_LOSS] Conflict | patient=%s | conflicts=%s",
+                patient_name, conflicts,
+            )
+
         last_user_msg = next(
             (m["content"] for m in reversed(ctx.conversation_history) if m.get("role") == "user"),
             "",
@@ -162,9 +207,6 @@ class WeightLossAgent(BaseAgent):
             reply_lower = reply.lower()
 
             if any(p in reply_lower for p in _SCHEDULING_HANDOFF_PHRASES):
-                # Antes de mandar pro scheduling, verifica se o endócrino tem
-                # vaga real nos próximos dias. Se não, lead vai pra fila de
-                # encaixe e o reply é substituído pela mensagem oficial.
                 has_slot = await has_endocrino_availability(ENDOCRINO_AVAILABILITY_WINDOW_DAYS)
                 logger.info(
                     "[WEIGHT_LOSS] Checagem de agenda do endócrino | patient=%s | tem_vaga=%s",
@@ -192,7 +234,6 @@ class WeightLossAgent(BaseAgent):
                     session_updates["ready_for_consult"] = "sim"
                     logger.info("[WEIGHT_LOSS] Handoff → scheduling (endócrino) | patient=%s", patient_name)
                 else:
-                    # Sem vaga → entra na fila de encaixe prioritário
                     notes_parts = []
                     if session_updates.get("caneta_interesse"):
                         notes_parts.append(f"Interesse: {session_updates['caneta_interesse']}")
@@ -220,8 +261,6 @@ class WeightLossAgent(BaseAgent):
                         },
                     )
 
-                    # Substitui o reply do LLM pela mensagem oficial — não
-                    # expomos "agenda cheia" nem "fila", só "alta procura".
                     reply = PRIORITY_QUEUE_MESSAGE
                     session_updates["ready_for_consult"] = "encaixe"
                     session_updates["status"] = "priority_queue"
@@ -240,7 +279,7 @@ class WeightLossAgent(BaseAgent):
         )
 
         return AgentResult(
-            reply=reply,
+            reply=reply or None,
             handoff_target=handoff_target,
             handoff_payload=handoff_payload,
             session_updates=session_updates,

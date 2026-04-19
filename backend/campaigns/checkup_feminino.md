@@ -1,7 +1,20 @@
 ---
-nome: Campanha Checkup Feminino
+campaign_id: checkup_feminino
+campaign_name: Campanha Checkup Feminino
+status: active
+priority: 50
+source: meta_ads
 especialidade: Ginecologia / Saúde da Mulher
-valor: R$ 284,48 (Consulta ginecológica + Papanicolau + 10 exames laboratoriais)
+offer_anchor: R$ 284,48 (Consulta ginecológica + Papanicolau + 10 exames laboratoriais)
+handoff_target: scheduling
+forbidden_promises:
+  - "Garantimos diagnóstico preciso"
+  - "Prevenção 100% de câncer"
+  - "Cura de qualquer condição"
+  - "Se não fizer pode ser grave"
+  - "Você pode ter [doença]"
+  - "É o mais barato de Sorocaba"
+  - "Resultado imediato sem confirmação operacional"
 ---
 
 ## Sobre a campanha

@@ -3,13 +3,23 @@ import logging
 from anthropic import AsyncAnthropic
 
 from config import get_settings
-from campaigns.service import get_campaign_service
 from db.models import SessionContext, AgentResult, HandoffPayload
 from agents.base_agent import BaseAgent
 from agents.prompt_loader import load_prompt
+from campaigns.service import get_campaign_service
+from prompts.composer import (
+    compose_agent_system,
+    format_campaigns_index,
+    format_session_state,
+)
 
 logger = logging.getLogger(__name__)
 
+
+_TRIAGE_SUFFIX = (
+    "Se rotear para campanha, responda com JSON no formato "
+    '{"target":"campaign","campaign_name":"nome exato","reason":"motivo breve"}.'
+)
 
 
 class TriageAgent(BaseAgent):
@@ -23,21 +33,28 @@ class TriageAgent(BaseAgent):
         patient_name = (ctx.patient_metadata or {}).get("name", "Desconhecido")
         logger.info("[TRIAGE] Iniciando | patient=%s (%s)", patient_name, ctx.patient_phone)
 
-        # Última mensagem do paciente
         last_user_msg = next(
             (m["content"] for m in reversed(ctx.conversation_history) if m["role"] == "user"),
             "",
         )
 
-        # Contexto adicional se for mídia
         content = last_user_msg
         if ctx.exam_content:
             content = f"[Paciente enviou exame]\n{ctx.exam_content}"
 
-        campaign_index = get_campaign_service().index_text()
-        system = load_prompt("triage")
-        if campaign_index:
-            system += f"\n\n{campaign_index}\n\nSe rotear para campanha, responda com JSON no formato {{\"target\":\"campaign\",\"campaign_name\":\"nome exato\",\"reason\":\"motivo breve\"}}."
+        service = get_campaign_service()
+
+        system, trace = compose_agent_system(
+            safety=load_prompt("_safety"),
+            core_identity=f"{load_prompt('triage').rstrip()}\n\n{_TRIAGE_SUFFIX}",
+            business_rules=load_prompt("_business_rules"),
+            campaigns_index=format_campaigns_index(service),
+            session_metadata=format_session_state(ctx),
+        )
+        logger.info(
+            "[TRIAGE] Trace | patient=%s | layers=%s",
+            patient_name, trace["layers_present"],
+        )
 
         try:
             response = await client.messages.create(
@@ -48,7 +65,6 @@ class TriageAgent(BaseAgent):
             )
 
             raw = response.content[0].text.strip()
-            # Remove markdown code block se presente
             if raw.startswith("```"):
                 raw = raw.split("```")[1]
                 if raw.startswith("json"):
@@ -73,7 +89,7 @@ class TriageAgent(BaseAgent):
             )
 
             return AgentResult(
-                reply=None,  # Triagem nunca responde ao paciente
+                reply=None,
                 handoff_target=target,
                 handoff_payload=HandoffPayload(
                     type=f"to_{target}",

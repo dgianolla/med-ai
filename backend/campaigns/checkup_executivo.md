@@ -1,7 +1,17 @@
 ---
-nome: Checkup Executivo
+campaign_id: checkup_executivo
+campaign_name: Checkup Executivo
+status: active
+priority: 50
+source: meta_ads
 especialidade:
-valor: a partir de R$ 279
+offer_anchor: a partir de R$ 279
+handoff_target: scheduling
+forbidden_promises:
+  - "É obrigatório fazer checkup todo ano"
+  - "Qualquer promessa de resultado ou diagnóstico"
+  - "Pressão para fechar no momento (últimas vagas, só hoje)"
+  - "Valores inventados ou aproximados — sempre consultar a tool"
 ---
 
 ## Sobre a campanha

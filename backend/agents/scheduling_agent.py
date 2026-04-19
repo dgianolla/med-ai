@@ -8,7 +8,20 @@ from config import get_settings
 from db.models import SessionContext, AgentResult
 from agents.base_agent import BaseAgent
 from agents.prompt_loader import load_prompt
+from campaigns.service import get_campaign_service
+from prompts.composer import (
+    compose_agent_system,
+    extract_and_strip_conflicts,
+    format_campaign_block,
+    format_campaigns_index,
+    format_session_state,
+)
 from tools.scheduling_tools import TOOLS
+from tools.campaign_tools import (
+    TOOLS as CAMPAIGN_TOOLS,
+    CAMPAIGN_TOOL_NAMES,
+    execute_campaign_tool,
+)
 from knowledge.tools import TOOLS as KNOWLEDGE_TOOLS, get_clinic_info
 from knowledge.service import get_knowledge
 from integrations.scheduling_api import (
@@ -23,8 +36,7 @@ from services.priority_leads import create_priority_lead
 
 logger = logging.getLogger(__name__)
 
-# Combina scheduling tools + knowledge tools
-ALL_TOOLS = TOOLS + KNOWLEDGE_TOOLS
+ALL_TOOLS = TOOLS + KNOWLEDGE_TOOLS + CAMPAIGN_TOOLS
 
 
 def _short(text: str | None, limit: int = 120) -> str:
@@ -32,6 +44,50 @@ def _short(text: str | None, limit: int = 120) -> str:
         return ""
     text = " ".join(text.split())
     return text if len(text) <= limit else text[: limit - 3] + "..."
+
+
+def _knowledge_facts() -> list[str]:
+    """Snapshot de dados dinâmicos da clínica para L5."""
+    knowledge = get_knowledge()
+    facts: list[str] = []
+
+    payment = knowledge.get("clinic_info", "payment")
+    if payment:
+        installments = payment.get("installments", {})
+        facts.append(
+            f"pagamento: métodos={', '.join(payment.get('methods', []))} | "
+            f"PIX={payment.get('pix_key', 'N/A')} | "
+            f"consultas até {installments.get('consultas', '2x')} | "
+            f"exames/combos até {installments.get('exames_combos', '10x')}"
+        )
+
+    arrival = knowledge.get("clinic_info", "arrival_policy")
+    if arrival:
+        facts.append(
+            f"chegada: {arrival.get('arrive_minutes_before', 15)}min antes | "
+            f"tolerância: {arrival.get('tolerance_minutes', 15)}min"
+        )
+
+    return facts
+
+
+def _combo_facts(ctx: SessionContext) -> list[str]:
+    """Fatos adicionais para L5 quando há combo em curso."""
+    if not (ctx.handoff_payload and ctx.handoff_payload.combo_id):
+        return []
+    combo_ctx = ctx.handoff_payload.context or {}
+    combo_name = combo_ctx.get("combo_name", ctx.handoff_payload.combo_id)
+    facts = [
+        f"combo fechado: {combo_name} (id: {ctx.handoff_payload.combo_id}) — "
+        "agendar apenas a ETAPA DE CONSULTA; especialidade já resolvida pelo combo",
+    ]
+    if combo_ctx.get("collection_schedule_required"):
+        facts.append(
+            "combo tem etapa de COLETA separada — não agendar coleta aqui, só consulta"
+        )
+    if not combo_ctx.get("convenio"):
+        facts.append("combos são sempre particular — não perguntar convênio")
+    return facts
 
 
 class SchedulingAgent(BaseAgent):
@@ -55,94 +111,42 @@ class SchedulingAgent(BaseAgent):
             sorted((ctx.handoff_payload.context or {}).keys()) if ctx.handoff_payload and ctx.handoff_payload.context else [],
         )
 
-        # Injeta data atual no prompt (substitui {today}, {month}, {year})
         now = datetime.now()
-        system = load_prompt("scheduling").format(
+        core_identity = load_prompt("scheduling").format(
             today=now.strftime("%Y-%m-%d"),
             month=now.strftime("%m"),
             year=now.strftime("%Y"),
         )
 
-        # Injeta informações dinâmicas da clínica
-        knowledge = get_knowledge()
-        payment_info = knowledge.get("clinic_info", "payment")
-        if payment_info:
-            system += (
-                f"\n\n## FORMAS DE PAGAMENTO (dados dinâmicos)\n"
-                f"Métodos: {', '.join(payment_info.get('methods', []))}\n"
-                f"Chave PIX: {payment_info.get('pix_key', 'N/A')}\n"
-                f"Parcelamento: Consultas até {payment_info.get('installments', {}).get('consultas', '2x')} | "
-                f"Exames/Combos até {payment_info.get('installments', {}).get('exames_combos', '10x')}"
-            )
+        service = get_campaign_service()
 
-        arrival_info = knowledge.get("clinic_info", "arrival_policy")
-        if arrival_info:
-            system += (
-                f"\n\n## POLÍTICA DE CHEGADA\n"
-                f"Chegar {arrival_info.get('arrive_minutes_before', 15)} minutos antes | "
-                f"Tolerância: {arrival_info.get('tolerance_minutes', 15)} minutos"
-            )
-
-        # Injeta contexto do handoff se vier da Triagem
-        if ctx.handoff_payload and ctx.handoff_payload.patient_name:
-            system += f"\n\nO paciente já se identificou como: {ctx.handoff_payload.patient_name}"
-        if ctx.handoff_payload and ctx.handoff_payload.specialty_needed:
-            system += (
-                f"\nA especialidade deste atendimento já foi definida anteriormente: "
-                f"{ctx.handoff_payload.specialty_needed}. Priorize essa especialidade e "
-                f"não volte a perguntar qual especialidade o paciente quer."
-            )
-
-        # Combo em curso → esta é a etapa de CONSULTA do combo
-        if ctx.handoff_payload and ctx.handoff_payload.combo_id:
-            combo_ctx = ctx.handoff_payload.context or {}
-            combo_name = combo_ctx.get("combo_name", ctx.handoff_payload.combo_id)
-            system += (
-                f"\n\n## CONTEXTO DE COMBO\n"
-                f"O paciente fechou o combo: **{combo_name}** (id: {ctx.handoff_payload.combo_id}).\n"
-                f"Sua tarefa aqui é agendar apenas a ETAPA DE CONSULTA desse combo — "
-                f"não é uma consulta avulsa. A especialidade da consulta já veio resolvida "
-                f"pelo combo e NÃO deve ser perguntada novamente ao paciente."
-            )
-            if combo_ctx.get("collection_schedule_required"):
-                system += (
-                    f"\nEste combo também tem etapa de COLETA DE EXAMES que será agendada "
-                    f"em um momento separado. Não tente marcar a coleta aqui — apenas a consulta. "
-                    f"Se o paciente perguntar sobre a coleta, diga que depois de fechar o horário "
-                    f"da consulta a gente combina a coleta."
-                )
-            # Particular é o default para combos (são produtos fechados)
-            if not combo_ctx.get("convenio"):
-                system += (
-                    f"\nCombos são sempre atendimento particular. "
-                    f"Não pergunte convênio para este atendimento."
-                )
-
-        # Injeta contexto acumulado de handoffs anteriores
+        campaign_block = ""
+        campaign_id = None
         if ctx.handoff_payload and ctx.handoff_payload.context:
-            context = ctx.handoff_payload.context
-            # Dados coletados por agentes anteriores
-            collected_info = []
-            if context.get("convenio"):
-                collected_info.append(f"Convênio: {context['convenio']}")
-            if context.get("specialty"):
-                collected_info.append(f"Especialidade já mencionada: {context['specialty']}")
-            if context.get("scheduled_date"):
-                collected_info.append(f"Já possui agendamento em {context['scheduled_date']} às {context.get('scheduled_time', '')}")
-            if context.get("appointment_id"):
-                collected_info.append(f"ID do agendamento: {context['appointment_id']}")
-            if collected_info:
-                system += "\n\n## INFORMAÇÕES COLETADAS EM INTERAÇÕES ANTERIORES\n" + "\n".join(collected_info)
+            campaign_name = ctx.handoff_payload.context.get("campaign_name")
+            if campaign_name:
+                campaign = service.get(campaign_name)
+                if campaign:
+                    campaign_block = format_campaign_block(campaign)
+                    campaign_id = campaign.campaign_id
 
-        # Nota sobre consulta de preços
-        system += (
-            "\n\n## NOTA: Se o paciente perguntar sobre PREÇOS, VALORES ou CUSTOS de consultas, "
-            "exames ou combos, NÃO invente valores. Use a tool `get_clinic_info` para consultar "
-            "os preços atualizados. Ex: get_clinic_info(query='qual o valor da consulta de cardiologia')."
+        extra_facts = _knowledge_facts() + _combo_facts(ctx)
+        session_metadata = format_session_state(ctx, extra_facts=extra_facts)
+
+        system, trace = compose_agent_system(
+            safety=load_prompt("_safety"),
+            core_identity=core_identity,
+            business_rules=load_prompt("_business_rules"),
+            campaigns_index=format_campaigns_index(service),
+            campaign_block=campaign_block,
+            session_metadata=session_metadata,
+        )
+        logger.info(
+            "[SCHEDULING] Trace | patient=%s | layers=%s | campaign_id=%s",
+            patient_name, trace["layers_present"], campaign_id,
         )
 
-        # Loop agentico: Claude pode chamar múltiplas tools antes de responder ao paciente
-        for _ in range(10):  # max 10 iterações por mensagem
+        for _ in range(10):
             try:
                 response = await client.messages.create(
                     model=self.model,
@@ -165,7 +169,7 @@ class SchedulingAgent(BaseAgent):
                 return AgentResult(
                     reply="Desculpe, tive um problema interno ao continuar seu agendamento. Pode me dizer novamente qual especialidade ou exame você quer agendar?",
                 )
-            except Exception as e:
+            except Exception:
                 logger.exception(
                     "[SCHEDULING] Unexpected provider failure | patient=%s | messages=%s",
                     patient_name,
@@ -175,7 +179,6 @@ class SchedulingAgent(BaseAgent):
                     reply="Desculpe, tive um problema interno ao continuar seu agendamento. Pode me dizer novamente qual especialidade ou exame você quer agendar?",
                 )
 
-            # Claude quer usar uma tool
             if response.stop_reason == "tool_use":
                 tool_names = [block.name for block in response.content if getattr(block, "type", None) == "tool_use"]
                 logger.info(
@@ -183,10 +186,8 @@ class SchedulingAgent(BaseAgent):
                     patient_name,
                     tool_names,
                 )
-                # Adiciona resposta do Claude (com tool_use blocks) ao histórico
                 messages.append({"role": "assistant", "content": response.content})
 
-                # Executa cada tool solicitada
                 tool_results = []
                 for block in response.content:
                     if block.type != "tool_use":
@@ -211,7 +212,6 @@ class SchedulingAgent(BaseAgent):
                         "content": json.dumps(result, ensure_ascii=False),
                     })
 
-                    # Salva dados coletados no contexto da sessão
                     if block.name == "schedule_appointment" and result.get("success"):
                         ctx.patient_metadata = ctx.patient_metadata or {}
                         ctx.patient_metadata.update({
@@ -222,7 +222,6 @@ class SchedulingAgent(BaseAgent):
                             "scheduled_date": block.input.get("date"),
                             "scheduled_time": block.input.get("hora_inicio"),
                         })
-                        # Salva appointment_id se retornado pela API
                         appointment_data = result.get("agendamento", {})
                         if appointment_data.get("id"):
                             ctx.patient_metadata["appointment_id"] = appointment_data["id"]
@@ -230,15 +229,20 @@ class SchedulingAgent(BaseAgent):
                 messages.append({"role": "user", "content": tool_results})
                 continue
 
-            # Claude terminou — extrai resposta de texto
             reply = next(
                 (b.text for b in response.content if hasattr(b, "text")),
                 None,
             )
 
-            # Verifica se o agendamento foi concluído
+            reply, conflicts = extract_and_strip_conflicts(reply)
+            if conflicts:
+                logger.warning(
+                    "[SCHEDULING] Conflict | patient=%s | conflicts=%s",
+                    patient_name, conflicts,
+                )
+
             done = (
-                reply is not None and
+                reply and
                 any(word in reply.lower() for word in [
                     "agendamento confirmado", "consulta agendada", "confirmado com sucesso",
                     "sua consulta foi marcada", "agendamento realizado",
@@ -251,9 +255,9 @@ class SchedulingAgent(BaseAgent):
             )
 
             return AgentResult(
-                reply=reply,
+                reply=reply or None,
                 session_updates=ctx.patient_metadata,
-                done=done,
+                done=bool(done),
             )
 
         return AgentResult(
@@ -261,17 +265,17 @@ class SchedulingAgent(BaseAgent):
         )
 
     async def _execute_tool(self, tool_name: str, tool_input: dict, ctx: SessionContext) -> dict:
-        """Executa a tool solicitada pelo Claude e retorna o resultado."""
         try:
+            if tool_name in CAMPAIGN_TOOL_NAMES:
+                return execute_campaign_tool(tool_name, tool_input)
+
             if tool_name == "get_clinic_info":
                 return await get_clinic_info(tool_input["query"])
 
             if tool_name == "get_agenda":
                 agenda = await get_agenda(tool_input["date_start"], tool_input["date_end"])
                 professional_id = tool_input["professional_id"]
-                # Filtra apenas agendamentos do profissional solicitado
                 prof_agenda = [a for a in agenda if a.get("profissionalSaude", {}).get("id") == professional_id]
-                # Conta convênios (convenio presente e não particular)
                 convenio_count = sum(
                     1 for a in prof_agenda
                     if a.get("convenio") and a["convenio"].get("id") != 48339

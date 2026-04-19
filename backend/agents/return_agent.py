@@ -7,19 +7,38 @@ from config import get_settings
 from db.models import SessionContext, AgentResult
 from agents.base_agent import BaseAgent
 from agents.prompt_loader import load_prompt
+from campaigns.service import get_campaign_service
+from prompts.composer import (
+    compose_agent_system,
+    extract_and_strip_conflicts,
+    format_campaign_block,
+    format_campaigns_index,
+    format_session_state,
+)
 from tools.return_tools import TOOLS
+from tools.campaign_tools import (
+    TOOLS as CAMPAIGN_TOOLS,
+    CAMPAIGN_TOOL_NAMES,
+    execute_campaign_tool,
+)
 from knowledge.tools import TOOLS as KNOWLEDGE_TOOLS, get_clinic_info
 from integrations.scheduling_api import (
     get_available_dates,
     get_available_times,
     create_appointment,
     get_professionals_for_specialty,
-    CONVENIOS,
 )
 
 logger = logging.getLogger(__name__)
 
-ALL_TOOLS = TOOLS + KNOWLEDGE_TOOLS
+ALL_TOOLS = TOOLS + KNOWLEDGE_TOOLS + CAMPAIGN_TOOLS
+
+
+def _last_consult_facts(ctx: SessionContext) -> list[str]:
+    """Inclui data da última consulta (se disponível no handoff) em L5."""
+    if ctx.handoff_payload and getattr(ctx.handoff_payload, "last_consult_date", None):
+        return [f"última consulta registrada: {ctx.handoff_payload.last_consult_date}"]
+    return []
 
 
 class ReturnAgent(BaseAgent):
@@ -34,16 +53,38 @@ class ReturnAgent(BaseAgent):
         logger.info("[RETURN] Iniciando | patient=%s (%s)", patient_name, ctx.patient_phone)
 
         now = datetime.now()
-        system = load_prompt("return").format(
+        core_identity = load_prompt("return").format(
             today=now.strftime("%Y-%m-%d"),
             month=now.strftime("%m"),
             year=now.strftime("%Y"),
         )
 
-        if ctx.handoff_payload and ctx.handoff_payload.patient_name:
-            system += f"\n\nO paciente já se identificou como: {ctx.handoff_payload.patient_name}"
-        if ctx.handoff_payload and ctx.handoff_payload.last_consult_date:
-            system += f"\nData da última consulta registrada: {ctx.handoff_payload.last_consult_date}"
+        service = get_campaign_service()
+
+        campaign_block = ""
+        campaign_id = None
+        if ctx.handoff_payload and ctx.handoff_payload.context:
+            campaign_name = ctx.handoff_payload.context.get("campaign_name")
+            if campaign_name:
+                campaign = service.get(campaign_name)
+                if campaign:
+                    campaign_block = format_campaign_block(campaign)
+                    campaign_id = campaign.campaign_id
+
+        session_metadata = format_session_state(ctx, extra_facts=_last_consult_facts(ctx))
+
+        system, trace = compose_agent_system(
+            safety=load_prompt("_safety"),
+            core_identity=core_identity,
+            business_rules=load_prompt("_business_rules"),
+            campaigns_index=format_campaigns_index(service),
+            campaign_block=campaign_block,
+            session_metadata=session_metadata,
+        )
+        logger.info(
+            "[RETURN] Trace | patient=%s | layers=%s | campaign_id=%s",
+            patient_name, trace["layers_present"], campaign_id,
+        )
 
         messages = self._build_history(ctx)
 
@@ -89,6 +130,13 @@ class ReturnAgent(BaseAgent):
                 None,
             )
 
+            reply, conflicts = extract_and_strip_conflicts(reply)
+            if conflicts:
+                logger.warning(
+                    "[RETURN] Conflict | patient=%s | conflicts=%s",
+                    patient_name, conflicts,
+                )
+
             done = reply is not None and any(word in reply.lower() for word in [
                 "retorno confirmado", "retorno agendado", "consulta de retorno marcada",
                 "agendamento confirmado", "confirmado com sucesso",
@@ -100,7 +148,7 @@ class ReturnAgent(BaseAgent):
             )
 
             return AgentResult(
-                reply=reply,
+                reply=reply or None,
                 session_updates=ctx.patient_metadata,
                 done=done,
             )
@@ -111,6 +159,9 @@ class ReturnAgent(BaseAgent):
 
     async def _execute_tool(self, tool_name: str, tool_input: dict) -> dict:
         try:
+            if tool_name in CAMPAIGN_TOOL_NAMES:
+                return execute_campaign_tool(tool_name, tool_input)
+
             if tool_name == "get_clinic_info":
                 return await get_clinic_info(tool_input["query"])
 
@@ -175,7 +226,7 @@ class ReturnAgent(BaseAgent):
                     hora_fim=tool_input["hora_fim"],
                     patient_name=tool_input["patient_name"],
                     patient_phone=tool_input["patient_phone"],
-                    convenio_id=48339,  # retorno sempre particular (gratuito pela clínica)
+                    convenio_id=48339,
                 )
                 return {"success": True, "agendamento": result}
 

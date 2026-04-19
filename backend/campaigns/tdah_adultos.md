@@ -1,7 +1,17 @@
 ---
-nome: TDAH Adultos
+campaign_id: tdah_adultos
+campaign_name: TDAH Adultos
+status: active
+priority: 50
+source: meta_ads
 especialidade: psiquiatria
-valor: R$ 450,00
+offer_anchor: R$ 450,00
+handoff_target: scheduling
+forbidden_promises:
+  - "Garantimos o diagnóstico"
+  - "Sai com receita no mesmo dia"
+  - "A avaliação já é o tratamento"
+  - "Minimizar a dor do paciente"
 ---
 
 ## Sobre a campanha

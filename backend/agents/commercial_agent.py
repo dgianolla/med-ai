@@ -12,13 +12,26 @@ from agents.handoff_utils import (
     set_consultation_flow,
 )
 from agents.prompt_loader import load_prompt
+from campaigns.service import get_campaign_service
+from prompts.composer import (
+    compose_agent_system,
+    extract_and_strip_conflicts,
+    format_campaign_block,
+    format_campaigns_index,
+    format_session_state,
+)
 from knowledge.tools import TOOLS as KNOWLEDGE_TOOLS, get_clinic_info
 from knowledge.service import get_knowledge
 from tools.commercial_tools import TOOLS as COMMERCIAL_TOOLS, confirm_combo
+from tools.campaign_tools import (
+    TOOLS as CAMPAIGN_TOOLS,
+    CAMPAIGN_TOOL_NAMES,
+    execute_campaign_tool,
+)
 
 logger = logging.getLogger(__name__)
 
-ALL_TOOLS = KNOWLEDGE_TOOLS + COMMERCIAL_TOOLS
+ALL_TOOLS = KNOWLEDGE_TOOLS + COMMERCIAL_TOOLS + CAMPAIGN_TOOLS
 
 _WEIGHT_LOSS_KEYWORDS = [
     "ozempic",
@@ -42,6 +55,30 @@ _DONE_PHRASES = [
     "até logo", "até mais", "obrigado por entrar em contato",
     "qualquer dúvida", "boa consulta", "tenha um ótimo dia",
 ]
+
+
+def _knowledge_facts() -> list[str]:
+    """Snapshot dinâmico de pagamento/endereço para L5."""
+    knowledge = get_knowledge()
+    facts: list[str] = []
+
+    payment = knowledge.get("clinic_info", "payment")
+    if payment:
+        installments = payment.get("installments", {})
+        facts.append(
+            f"pagamento: métodos={', '.join(payment.get('methods', []))} | "
+            f"PIX={payment.get('pix_key', 'N/A')} | "
+            f"consultas até {installments.get('consultas', '2x')} | "
+            f"exames/combos até {installments.get('exames_combos', '10x')}"
+        )
+
+    address = knowledge.get("clinic_info", "address")
+    if address:
+        facts.append(
+            f"endereço: {address.get('street')} — {address.get('landmark')}"
+        )
+
+    return facts
 
 
 class CommercialAgent(BaseAgent):
@@ -86,57 +123,37 @@ class CommercialAgent(BaseAgent):
                 ),
             )
 
-        system = load_prompt("commercial")
+        service = get_campaign_service()
 
-        # Injeta informações dinâmicas da clínica
-        knowledge = get_knowledge()
-        payment_info = knowledge.get("clinic_info", "payment")
-        if payment_info:
-            system += (
-                f"\n\n## FORMAS DE PAGAMENTO ATUALIZADAS\n"
-                f"Métodos: {', '.join(payment_info.get('methods', []))}\n"
-                f"Chave PIX: {payment_info.get('pix_key', 'N/A')}\n"
-                f"Parcelamento: Consultas até {payment_info.get('installments', {}).get('consultas', '2x')} | "
-                f"Exames/Combos até {payment_info.get('installments', {}).get('exames_combos', '10x')}"
-            )
-
-        address_info = knowledge.get("clinic_info", "address")
-        if address_info:
-            system += (
-                f"\n\n## ENDEREÇO\n"
-                f"{address_info.get('street')} — {address_info.get('landmark')}"
-            )
-
-        # Contexto do handoff (ex: veio de Exames com exames específicos)
-        if ctx.handoff_payload:
-            payload = ctx.handoff_payload
-            if payload.patient_name:
-                system += f"\n\nO paciente já se identificou como: {payload.patient_name}"
-            if payload.reason:
-                system += f"\nMotivo do encaminhamento: {payload.reason}"
-            if payload.exam_ids:
-                system += f"\nExames de interesse: {', '.join(payload.exam_ids)}"
-
-        # Injeta contexto acumulado de handoffs anteriores
+        campaign_block = ""
+        campaign_id = None
         if ctx.handoff_payload and ctx.handoff_payload.context:
-            context = ctx.handoff_payload.context
-            collected_info = []
-            if context.get("convenio"):
-                collected_info.append(f"Convênio: {context['convenio']}")
-            if context.get("specialty"):
-                collected_info.append(f"Especialidade de interesse: {context['specialty']}")
-            if context.get("scheduled_date"):
-                collected_info.append(f"Já possui agendamento em {context['scheduled_date']}")
-            if context.get("previous_agent"):
-                collected_info.append(f"Veio do agente: {context['previous_agent']}")
-            if collected_info:
-                system += "\n\n## CONTEXTO DA CONVERSA ANTERIOR\n" + "\n".join(collected_info)
+            campaign_name = ctx.handoff_payload.context.get("campaign_name")
+            if campaign_name:
+                campaign = service.get(campaign_name)
+                if campaign:
+                    campaign_block = format_campaign_block(campaign)
+                    campaign_id = campaign.campaign_id
+
+        session_metadata = format_session_state(ctx, extra_facts=_knowledge_facts())
+
+        system, trace = compose_agent_system(
+            safety=load_prompt("_safety"),
+            core_identity=load_prompt("commercial"),
+            business_rules=load_prompt("_business_rules"),
+            campaigns_index=format_campaigns_index(service),
+            campaign_block=campaign_block,
+            session_metadata=session_metadata,
+        )
+        logger.info(
+            "[COMMERCIAL] Trace | patient=%s | layers=%s | campaign_id=%s",
+            patient_name, trace["layers_present"], campaign_id,
+        )
 
         messages = self._build_history(ctx)
 
         confirmed_combo: dict | None = None
 
-        # Loop agentico para suportar tools
         for _ in range(5):
             response = await client.messages.create(
                 model=self.model,
@@ -155,7 +172,9 @@ class CommercialAgent(BaseAgent):
                     if block.type != "tool_use":
                         continue
 
-                    if block.name == "get_clinic_info":
+                    if block.name in CAMPAIGN_TOOL_NAMES:
+                        result = execute_campaign_tool(block.name, block.input)
+                    elif block.name == "get_clinic_info":
                         result = await get_clinic_info(block.input["query"])
                     elif block.name == "confirm_combo":
                         result = confirm_combo(block.input["combo_id"])
@@ -185,11 +204,17 @@ class CommercialAgent(BaseAgent):
         else:
             reply = None
 
+        reply, conflicts = extract_and_strip_conflicts(reply)
+        if conflicts:
+            logger.warning(
+                "[COMMERCIAL] Conflict | patient=%s | conflicts=%s",
+                patient_name, conflicts,
+            )
+
         handoff_target = None
         handoff_payload = None
         done = False
 
-        # Prioridade 1: combo confirmado via tool → handoff estruturado para scheduling
         if confirmed_combo and confirmed_combo.get("consultation_included"):
             set_combo_flow(ctx, confirmed_combo["combo_id"])
 
@@ -228,7 +253,7 @@ class CommercialAgent(BaseAgent):
         )
 
         return AgentResult(
-            reply=reply,
+            reply=reply or None,
             handoff_target=handoff_target,
             handoff_payload=handoff_payload,
             done=done,

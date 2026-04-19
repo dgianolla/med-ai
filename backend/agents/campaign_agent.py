@@ -15,11 +15,23 @@ from campaigns.service import get_campaign_service
 from config import get_settings
 from db.models import AgentResult, HandoffPayload, SessionContext
 from knowledge.tools import TOOLS as KNOWLEDGE_TOOLS, get_clinic_info
+from prompts.composer import (
+    compose_agent_system,
+    extract_and_strip_conflicts,
+    format_campaign_block,
+    format_campaigns_index,
+    format_session_state,
+)
 from tools.commercial_tools import TOOLS as COMMERCIAL_TOOLS, confirm_combo
+from tools.campaign_tools import (
+    TOOLS as CAMPAIGN_TOOLS,
+    CAMPAIGN_TOOL_NAMES,
+    execute_campaign_tool,
+)
 
 logger = logging.getLogger(__name__)
 
-ALL_TOOLS = KNOWLEDGE_TOOLS + COMMERCIAL_TOOLS
+ALL_TOOLS = KNOWLEDGE_TOOLS + COMMERCIAL_TOOLS + CAMPAIGN_TOOLS
 
 _SCHEDULING_HANDOFF_PHRASES = [
     "vou te encaminhar para agendamento",
@@ -80,35 +92,31 @@ class CampaignAgent(BaseAgent):
             )
 
         logger.info(
-            "[CAMPAIGN] Context | patient=%s | campaign=%s | specialty=%s | history=%s",
+            "[CAMPAIGN] Context | patient=%s | campaign_id=%s | campaign=%s | especialidade=%s | history=%s",
             patient_name,
+            campaign.campaign_id,
             campaign.nome,
             campaign.especialidade or "-",
             len(ctx.conversation_history),
         )
 
-        system = load_prompt("campaign")
-        system += (
-            "\n\n## CAMPANHA ATIVA\n"
-            f"{campaign.raw.strip()}\n\n"
-            "Regra explícita: siga o fluxo de atendimento na ordem; use get_clinic_info "
-            "para dados canônicos da clínica; não invente nada fora deste .md e da knowledge base."
+        # Montagem do system prompt em camadas L1..L5 com meta-regra de precedência.
+        system, trace = compose_agent_system(
+            safety=load_prompt("_safety"),
+            core_identity=load_prompt("campaign"),
+            business_rules=load_prompt("_business_rules"),
+            campaigns_index=format_campaigns_index(service),
+            campaign_block=format_campaign_block(campaign),
+            session_metadata=format_session_state(ctx),
         )
 
-        if ctx.handoff_payload:
-            payload = ctx.handoff_payload
-            if payload.patient_name:
-                system += f"\n\nPaciente: {payload.patient_name}"
-            if payload.reason:
-                system += f"\nMotivo do encaminhamento: {payload.reason}"
-
-        if ctx.patient_metadata:
-            collected = []
-            for key in ("name", "convenio", "specialty", "interest"):
-                if ctx.patient_metadata.get(key):
-                    collected.append(f"{key}: {ctx.patient_metadata[key]}")
-            if collected:
-                system += "\n\n## METADATA DA SESSÃO\n" + "\n".join(collected)
+        logger.info(
+            "[CAMPAIGN] Trace | patient=%s | campaign_id=%s | layers=%s | layer_chars=%s",
+            patient_name,
+            campaign.campaign_id,
+            trace["layers_present"],
+            trace["layers_total_chars"],
+        )
 
         messages = self._build_history(ctx)
 
@@ -132,7 +140,9 @@ class CampaignAgent(BaseAgent):
                     if block.type != "tool_use":
                         continue
 
-                    if block.name == "get_clinic_info":
+                    if block.name in CAMPAIGN_TOOL_NAMES:
+                        result = execute_campaign_tool(block.name, block.input)
+                    elif block.name == "get_clinic_info":
                         result = await get_clinic_info(block.input["query"])
                     elif block.name == "confirm_combo":
                         result = confirm_combo(block.input["combo_id"])
@@ -159,6 +169,14 @@ class CampaignAgent(BaseAgent):
 
             reply = next((b.text for b in response.content if hasattr(b, "text")), None)
             break
+
+        # Extrai e remove marcações [[conflict: ...]] auto-reportadas pelo modelo.
+        reply, conflicts = extract_and_strip_conflicts(reply)
+        if conflicts:
+            logger.warning(
+                "[CAMPAIGN] Conflict | patient=%s | campaign_id=%s | conflicts=%s",
+                patient_name, campaign.campaign_id, conflicts,
+            )
 
         handoff_target = None
         handoff_payload = None
