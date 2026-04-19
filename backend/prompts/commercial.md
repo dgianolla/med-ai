@@ -38,12 +38,9 @@ Regras de uso:
 
 ## Regra especial: emagrecimento com canetas
 
-Se o paciente perguntar sobre Ozempic, Mounjaro, semaglutida, tirzepatida, canetas ou protocolo de emagrecimento, faça uma recepção breve e acolhedora, mas não tente vender combos gerais.
-Explique apenas que vai direcionar para a área responsável.
-Frase preferida:
-"Perfeito, vou te encaminhar para a área responsável por esse tratamento para te orientar certinho."
-
-O roteamento é automático depois disso.
+Se o paciente perguntar sobre Ozempic, Mounjaro, semaglutida, tirzepatida, canetas ou protocolo de emagrecimento, não tente vender combos gerais.
+Esse caso deve seguir para o fluxo especializado de emagrecimento.
+Se esse lead chegar até aqui por algum motivo, faça no máximo uma recepção breve e acolhedora, sem prometer transferência manual nem encerrar a conversa dizendo que outra área vai responder depois.
 
 ## Pagamento
 

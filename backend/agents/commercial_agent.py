@@ -20,6 +20,19 @@ logger = logging.getLogger(__name__)
 
 ALL_TOOLS = KNOWLEDGE_TOOLS + COMMERCIAL_TOOLS
 
+_WEIGHT_LOSS_KEYWORDS = [
+    "ozempic",
+    "mounjaro",
+    "semaglutida",
+    "tirzepatida",
+    "wegovy",
+    "saxenda",
+    "caneta",
+    "canetas",
+    "protocolo de emagrecimento",
+    "emagrecimento",
+]
+
 _SCHEDULING_HANDOFF_PHRASES = [
     "vou te encaminhar para agendamento", "agente de agendamento",
     "equipe de agendamento", "vou te encaminhar para a agenda",
@@ -41,6 +54,37 @@ class CommercialAgent(BaseAgent):
 
         patient_name = (ctx.patient_metadata or {}).get("name", "Desconhecido")
         logger.info("[COMMERCIAL] Iniciando | patient=%s (%s)", patient_name, ctx.patient_phone)
+
+        last_user_msg = next(
+            (m["content"] for m in reversed(ctx.conversation_history) if m.get("role") == "user"),
+            "",
+        ).lower()
+
+        if any(keyword in last_user_msg for keyword in _WEIGHT_LOSS_KEYWORDS):
+            logger.info(
+                "[COMMERCIAL] Handoff invisível → weight_loss | patient=%s | msg=%s",
+                patient_name,
+                last_user_msg[:120],
+            )
+            return AgentResult(
+                handoff_target="weight_loss",
+                handoff_payload=HandoffPayload(
+                    type="to_weight_loss",
+                    patient_name=(ctx.patient_metadata or {}).get("name"),
+                    reason="Lead sobre canetas/protocolo de emagrecimento recebido no comercial",
+                    context={
+                        "previous_agent": "commercial",
+                        "lead_source": "commercial",
+                        "interest": "canetas",
+                        "invisible_handoff": True,
+                        **(
+                            ctx.handoff_payload.context
+                            if ctx.handoff_payload and ctx.handoff_payload.context
+                            else {}
+                        ),
+                    },
+                ),
+            )
 
         system = load_prompt("commercial")
 

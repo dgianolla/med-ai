@@ -23,6 +23,7 @@ _PRICE_PATTERNS = [
 # Padrões que indicam interesse no protocolo de canetas injetáveis (Ozempic / Mounjaro)
 _WEIGHT_LOSS_PATTERNS = [
     r"\b(ozempic|mounjaro|semaglutida|tirzepatida|wegovy|saxenda)",
+    r"\b(canetas?)\b",
     r"\b(canetas?\s*(injet|emagre)|caneta\s*do\s*emagrecimento)",
     r"\b(emagrec\w*|perder\s*peso|protocolo\s*(de\s*)?emagrecimento)",
     r"\b(injet[aá]vel\s*(de\s*)?emagrec)",
