@@ -1,5 +1,7 @@
 import httpx
 import logging
+import re
+import unicodedata
 from datetime import datetime
 
 logger = logging.getLogger(__name__)
@@ -143,41 +145,135 @@ async def confirm_appointment(appointment_id: str | int) -> dict:
         return resp.json()
 
 
+# Sinônimos → especialidade canônica. Aceita palavras ou expressões multi-token
+# (ex.: "saude metabolica"). Todas as chaves ficam normalizadas (minúsculo, sem
+# acento, sem pontuação — alinhado com _normalize_specialty abaixo).
+_SPECIALTY_SYNONYMS: dict[str, str] = {
+    # cardiologia
+    "cardiologista": "cardiologia",
+    "cardiologico": "cardiologia",
+    "cardiologo": "cardiologia",
+    "coracao": "cardiologia",
+    "cardio": "cardiologia",
+    # ginecologia
+    "ginecologo": "ginecologia",
+    "ginecologista": "ginecologia",
+    "gineco": "ginecologia",
+    "saude da mulher": "ginecologia",
+    "saude feminina": "ginecologia",
+    # dermatologia
+    "dermato": "dermatologia",
+    "dermatologo": "dermatologia",
+    "dermatologa": "dermatologia",
+    "pele": "dermatologia",
+    # endocrinologia
+    "endocrino": "endocrinologia",
+    "endocrinologista": "endocrinologia",
+    "metabolismo": "endocrinologia",
+    "saude metabolica": "endocrinologia",
+    "metabolica": "endocrinologia",
+    "hormonio": "endocrinologia",
+    "hormonal": "endocrinologia",
+    # psiquiatria
+    "psiquiatra": "psiquiatria",
+    "saude mental": "psiquiatria",
+    "mental": "psiquiatria",
+    "ansiedade": "psiquiatria",
+    "depressao": "psiquiatria",
+    "tdah": "psiquiatria",
+    # clinica geral
+    "clinico": "clinica_geral",
+    "geral": "clinica_geral",
+    "clinica": "clinica_geral",
+    "clinica geral": "clinica_geral",
+    "clinico geral": "clinica_geral",
+    # otorrino
+    "otorrino": "otorrinolaringologia",
+    "otorrinolaringologista": "otorrinolaringologia",
+    "garganta": "otorrinolaringologia",
+    "nariz": "otorrinolaringologia",
+    "ouvido": "otorrinolaringologia",
+}
+
+
+def _normalize_specialty(specialty: str) -> str:
+    """Minúsculo, sem acentos, sem pontuação, espaços colapsados."""
+    if not specialty:
+        return ""
+    decomposed = unicodedata.normalize("NFKD", specialty)
+    without_accents = "".join(c for c in decomposed if not unicodedata.combining(c))
+    lowered = without_accents.lower()
+    cleaned = re.sub(r"[^a-z0-9]+", " ", lowered).strip()
+    return re.sub(r"\s+", " ", cleaned)
+
+
+def _canonical_from_tokens(normalized: str) -> str | None:
+    """Token/substring match contra chaves canônicas + sinônimos.
+
+    Ex.: "endocrinologia saude metabolica" contém "endocrinologia" (chave canônica)
+    → retorna "endocrinologia". Ex.: "saude metabolica e controle hormonal" contém
+    "saude metabolica" (sinônimo) → retorna "endocrinologia".
+    """
+    canonical_keys = {k.replace("_", " "): k for k in PROFESSIONALS.keys()}
+
+    # sinônimos multi-palavra primeiro (mais específicos)
+    for synonym, canonical in sorted(
+        _SPECIALTY_SYNONYMS.items(), key=lambda kv: -len(kv[0])
+    ):
+        if re.search(rf"\b{re.escape(synonym)}\b", normalized):
+            return canonical
+
+    # chaves canônicas como substring (ex.: "ginecologia" em "ginecologia e obstetricia")
+    for canonical_space, canonical_key in canonical_keys.items():
+        if re.search(rf"\b{re.escape(canonical_space)}\b", normalized):
+            return canonical_key
+
+    return None
+
+
 def get_professionals_for_specialty(specialty: str) -> list[dict]:
-    """Retorna profissionais disponíveis para uma especialidade."""
-    key = specialty.lower().replace(" ", "_").replace("ç", "c").replace("ã", "a")
-    # Normalização simples de palavras comuns
-    aliases = {
-        "cardiologista": "cardiologia",
-        "cardiologico": "cardiologia",
-        "cardiologo": "cardiologia",
-        "ginecologo": "ginecologia",
-        "ginecologista": "ginecologia",
-        "gineco": "ginecologia",
-        "dermato": "dermatologia",
-        "dermatologo": "dermatologia",
-        "dermatologa": "dermatologia",
-        "pele": "dermatologia",
-        "endocrino": "endocrinologia",
-        "endocrinologista": "endocrinologia",
-        "metabolismo": "endocrinologia",
-        "hormonio": "endocrinologia",
-        "hormonal": "endocrinologia",
-        "psiquiatra": "psiquiatria",
-        "psiquiatria": "psiquiatria",
-        "mental": "psiquiatria",
-        "ansiedade": "psiquiatria",
-        "depressao": "psiquiatria",
-        "depressão": "psiquiatria",
-        "clinico": "clinica_geral",
-        "clínico": "clinica_geral",
-        "geral": "clinica_geral",
-        "clinica": "clinica_geral",
-        "otorrino": "otorrinolaringologia",
-        "otorrinolaringologista": "otorrinolaringologia",
-        "garganta": "otorrinolaringologia",
-        "nariz": "otorrinolaringologia",
-        "ouvido": "otorrinolaringologia",
-    }
-    key = aliases.get(key, key)
-    return PROFESSIONALS.get(key, [])
+    """Retorna profissionais da especialidade.
+
+    Estratégia:
+      1. Normaliza (lowercase, sem acento, sem pontuação).
+      2. Match exato contra chaves canônicas ou sinônimos.
+      3. Fallback: procura chave canônica ou sinônimo como substring/token.
+      4. Loga o caminho de resolução p/ diagnóstico.
+    """
+    if not specialty:
+        return []
+
+    normalized = _normalize_specialty(specialty)
+    normalized_key = normalized.replace(" ", "_")
+
+    # 1. match exato em PROFESSIONALS (chave com underscore)
+    if normalized_key in PROFESSIONALS:
+        logger.info(
+            "[SPECIALTY] resolve | input=%r | resolved=%s | via=exact",
+            specialty, normalized_key,
+        )
+        return PROFESSIONALS[normalized_key]
+
+    # 2. match exato em sinônimos (string normalizada com espaços)
+    if normalized in _SPECIALTY_SYNONYMS:
+        canonical = _SPECIALTY_SYNONYMS[normalized]
+        logger.info(
+            "[SPECIALTY] resolve | input=%r | resolved=%s | via=synonym_exact",
+            specialty, canonical,
+        )
+        return PROFESSIONALS.get(canonical, [])
+
+    # 3. fallback: token/substring
+    canonical = _canonical_from_tokens(normalized)
+    if canonical:
+        logger.info(
+            "[SPECIALTY] resolve | input=%r | resolved=%s | via=substring",
+            specialty, canonical,
+        )
+        return PROFESSIONALS.get(canonical, [])
+
+    logger.warning(
+        "[SPECIALTY] resolve_fail | input=%r | normalized=%r",
+        specialty, normalized,
+    )
+    return []

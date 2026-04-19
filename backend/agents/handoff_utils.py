@@ -1,4 +1,91 @@
+import re
+import unicodedata
+
 from db.models import HandoffPayload, SessionContext
+
+
+# ----------------------------------------------------------------------
+# Matching de frase-gatilho (agentes que decidem handoff por texto da resposta)
+# ----------------------------------------------------------------------
+
+SCHEDULING_HANDOFF_PHRASES: tuple[str, ...] = (
+    "vou te encaminhar para agendamento",
+    "vou te encaminhar pro agendamento",
+    "vou te encaminhar para a agenda",
+    "vou te encaminhar pra agenda",
+    "vou te passar para agendamento",
+    "vou te passar pro agendamento",
+    "vou te passar para a agenda",
+    "vou te levar para agendamento",
+    "vou te levar pro agendamento",
+    "te encaminhar para agendamento",
+    "te encaminhar pro agendamento",
+    "te encaminhar para a agenda",
+    "agente de agendamento",
+    "equipe de agendamento",
+)
+
+COMMERCIAL_HANDOFF_PHRASES: tuple[str, ...] = (
+    "vou te encaminhar para o comercial",
+    "vou te encaminhar pro comercial",
+    "vou transferir para o comercial",
+    "vou transferir pro comercial",
+    "te encaminhar para o comercial",
+    "te encaminhar pro comercial",
+    "te passar para o comercial",
+    "te passar pro comercial",
+    "nosso setor comercial",
+    "colega do comercial",
+    "equipe comercial",
+    "agente comercial",
+)
+
+HUMAN_HANDOFF_PHRASES: tuple[str, ...] = (
+    "vou te encaminhar agora para nossa equipe",
+    "vou te encaminhar para nossa equipe",
+    "vou te passar para nossa equipe",
+    "vou chamar nossa equipe",
+)
+
+DONE_PHRASES: tuple[str, ...] = (
+    "ate logo",
+    "ate mais",
+    "obrigado por entrar em contato",
+    "qualquer duvida",
+    "qualquer coisa",
+    "boa consulta",
+    "tenha um otimo dia",
+    "fico a disposicao",
+    "estamos a disposicao",
+)
+
+
+def _normalize_text(text: str) -> str:
+    """Minúsculo, sem acentos, sem pontuação, espaços colapsados."""
+    if not text:
+        return ""
+    decomposed = unicodedata.normalize("NFKD", text)
+    without_accents = "".join(c for c in decomposed if not unicodedata.combining(c))
+    lowered = without_accents.lower()
+    cleaned = re.sub(r"[^a-z0-9]+", " ", lowered).strip()
+    return re.sub(r"\s+", " ", cleaned)
+
+
+def matches_any_phrase(text: str | None, phrases: tuple[str, ...] | list[str]) -> bool:
+    """True se `text` contém qualquer frase de `phrases`, ignorando acento/caixa/pontuação.
+
+    As frases em `phrases` devem vir já normalizadas (sem acento/maiúscula) para evitar
+    custo de renormalização em cada chamada. As constantes deste módulo seguem isso.
+    """
+    normalized = _normalize_text(text or "")
+    if not normalized:
+        return False
+    return any(phrase in normalized for phrase in phrases)
+
+
+# ----------------------------------------------------------------------
+# Builders de handoff
+# ----------------------------------------------------------------------
 
 
 def previous_context(ctx: SessionContext) -> dict:

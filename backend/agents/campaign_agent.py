@@ -5,8 +5,11 @@ from anthropic import AsyncAnthropic
 
 from agents.base_agent import BaseAgent
 from agents.handoff_utils import (
+    DONE_PHRASES,
+    SCHEDULING_HANDOFF_PHRASES,
     build_combo_scheduling_handoff,
     build_consultation_scheduling_handoff,
+    matches_any_phrase,
     set_combo_flow,
     set_consultation_flow,
 )
@@ -32,22 +35,6 @@ from tools.campaign_tools import (
 logger = logging.getLogger(__name__)
 
 ALL_TOOLS = KNOWLEDGE_TOOLS + COMMERCIAL_TOOLS + CAMPAIGN_TOOLS
-
-_SCHEDULING_HANDOFF_PHRASES = [
-    "vou te encaminhar para agendamento",
-    "vou te encaminhar pro agendamento",
-    "vou te passar para agendamento",
-    "vou te passar pro agendamento",
-]
-
-_DONE_PHRASES = [
-    "até logo",
-    "até mais",
-    "obrigado por entrar em contato",
-    "qualquer dúvida",
-    "fico à disposição",
-]
-
 
 class CampaignAgent(BaseAgent):
     agent_type = "campaign"
@@ -210,9 +197,7 @@ class CampaignAgent(BaseAgent):
                 confirmed_combo["consultation_specialty"],
             )
         elif reply:
-            reply_lower = reply.lower()
-
-            if any(phrase in reply_lower for phrase in _SCHEDULING_HANDOFF_PHRASES):
+            if matches_any_phrase(reply, SCHEDULING_HANDOFF_PHRASES):
                 set_consultation_flow(ctx)
                 handoff_payload = build_consultation_scheduling_handoff(
                     ctx,
@@ -242,7 +227,7 @@ class CampaignAgent(BaseAgent):
                     "[CAMPAIGN] Handoff | kind=invisivel | from=campaign | to=scheduling | patient=%s | campaign=%s | specialty=%s",
                     patient_name, campaign.nome, campaign.especialidade,
                 )
-            elif any(phrase in reply_lower for phrase in _DONE_PHRASES):
+            elif matches_any_phrase(reply, DONE_PHRASES):
                 done = True
                 logger.info("[CAMPAIGN] Sessão encerrada | patient=%s | campaign=%s", patient_name, campaign.nome)
 

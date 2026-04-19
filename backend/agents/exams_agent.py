@@ -5,6 +5,11 @@ from anthropic import AsyncAnthropic
 from config import get_settings
 from db.models import SessionContext, AgentResult, HandoffPayload
 from agents.base_agent import BaseAgent
+from agents.handoff_utils import (
+    COMMERCIAL_HANDOFF_PHRASES,
+    SCHEDULING_HANDOFF_PHRASES,
+    matches_any_phrase,
+)
 from agents.prompt_loader import load_prompt
 from campaigns.service import get_campaign_service
 from prompts.composer import (
@@ -24,16 +29,6 @@ from tools.campaign_tools import (
 logger = logging.getLogger(__name__)
 
 ALL_TOOLS = CAMPAIGN_TOOLS
-
-_COMMERCIAL_HANDOFF_PHRASES = [
-    "vou te encaminhar", "vou transferir", "nosso setor comercial",
-    "colega do comercial", "equipe comercial", "agente comercial",
-]
-_SCHEDULING_HANDOFF_PHRASES = [
-    "agente de agendamento", "vou te encaminhar para agendamento",
-    "equipe de agendamento",
-]
-
 
 def _exam_policy_facts() -> list[str]:
     """Snapshot da política de exames para L5."""
@@ -150,8 +145,7 @@ class ExamsAgent(BaseAgent):
         patient_name_out = (ctx.patient_metadata or {}).get("name")
 
         if reply:
-            reply_lower = reply.lower()
-            if any(p in reply_lower for p in _COMMERCIAL_HANDOFF_PHRASES):
+            if matches_any_phrase(reply, COMMERCIAL_HANDOFF_PHRASES):
                 handoff_target = "commercial"
                 handoff_payload = HandoffPayload(
                     type="to_commercial",
@@ -159,7 +153,7 @@ class ExamsAgent(BaseAgent):
                     reason="Encaminhado pelo agente de exames",
                 )
                 logger.info("[EXAMS] Handoff → commercial | patient=%s", patient_name_out)
-            elif any(p in reply_lower for p in _SCHEDULING_HANDOFF_PHRASES):
+            elif matches_any_phrase(reply, SCHEDULING_HANDOFF_PHRASES):
                 handoff_target = "scheduling"
                 handoff_payload = HandoffPayload(
                     type="to_scheduling",

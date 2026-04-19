@@ -6,8 +6,11 @@ from config import get_settings
 from db.models import SessionContext, AgentResult, HandoffPayload
 from agents.base_agent import BaseAgent
 from agents.handoff_utils import (
+    DONE_PHRASES,
+    SCHEDULING_HANDOFF_PHRASES,
     build_combo_scheduling_handoff,
     build_consultation_scheduling_handoff,
+    matches_any_phrase,
     set_combo_flow,
     set_consultation_flow,
 )
@@ -45,17 +48,6 @@ _WEIGHT_LOSS_KEYWORDS = [
     "protocolo de emagrecimento",
     "emagrecimento",
 ]
-
-_SCHEDULING_HANDOFF_PHRASES = [
-    "vou te encaminhar para agendamento", "agente de agendamento",
-    "equipe de agendamento", "vou te encaminhar para a agenda",
-]
-
-_DONE_PHRASES = [
-    "até logo", "até mais", "obrigado por entrar em contato",
-    "qualquer dúvida", "boa consulta", "tenha um ótimo dia",
-]
-
 
 def _knowledge_facts() -> list[str]:
     """Snapshot dinâmico de pagamento/endereço para L5."""
@@ -228,8 +220,7 @@ class CommercialAgent(BaseAgent):
             )
 
         elif reply:
-            reply_lower = reply.lower()
-            if any(p in reply_lower for p in _SCHEDULING_HANDOFF_PHRASES):
+            if matches_any_phrase(reply, SCHEDULING_HANDOFF_PHRASES):
                 set_consultation_flow(ctx)
                 handoff_target = "scheduling"
                 handoff_payload = build_consultation_scheduling_handoff(
@@ -239,7 +230,7 @@ class CommercialAgent(BaseAgent):
                     source_agent="commercial",
                 )
                 logger.info("[COMMERCIAL] Handoff → scheduling | patient=%s", patient_name)
-            elif any(p in reply_lower for p in _DONE_PHRASES):
+            elif matches_any_phrase(reply, DONE_PHRASES):
                 done = True
                 logger.info("[COMMERCIAL] Sessão encerrada | patient=%s", patient_name)
 

@@ -11,7 +11,7 @@ Use this skill when the user wants the Markdown base for a new campaign.
 
 Return a Markdown template that matches the exact pattern used by the project in `backend/campaigns/*.md`.
 
-The primary job of this skill is to give the user a ready-to-edit campaign draft, not to invent a new schema.
+The primary job of this skill is to give the user a ready-to-edit campaign draft, following the current project schema instead of inventing a simplified one.
 
 ## Output rule
 
@@ -25,38 +25,54 @@ If important information is missing, keep placeholders such as `[nome da campanh
 The draft must follow these rules:
 
 - Use simple YAML frontmatter with one value per line.
-- Only use these frontmatter fields: `nome`, `especialidade`, `valor`.
-- Do not use lists, nested objects, or extra keys in the frontmatter.
+- Prefer the campaign frontmatter currently used by the project:
+  - `campaign_id`
+  - `campaign_name`
+  - `status`
+  - `priority`
+  - `source`
+  - `especialidade`
+  - `offer_anchor`
+  - `handoff_target`
+  - `forbidden_promises`
+- `forbidden_promises` should be a YAML list when the user provides concrete prohibitions.
+- Additional keys should only be used when the user explicitly asks for them or when the repository pattern already uses them.
 - Keep the body in Portuguese.
-- Preserve the campaign sections below in this order:
+- Preserve the campaign sections below in this order when the user is asking for the project-standard operational campaign:
   - `## Sobre a campanha`
-  - `## Fluxo de atendimento`
-  - `## Não dizer`
+  - `## Opções de atendimento` when the campaign has named offers, packages, or price tiers
+  - `## Nomenclatura obrigatória` when the campaign depends on terminology rules
+  - `## Steps de atendimento`
   - `## Escalonamento`
 
 ## Campaign body pattern
 
-Inside `## Fluxo de atendimento`, always keep:
+Inside `## Steps de atendimento`, keep the campaign structured in explicit steps whenever the user provides a step-by-step script.
 
-- An opening instruction telling the agent to follow the steps in order.
-- A rule to ask one question at a time in WhatsApp style.
+For campaigns in the newer pattern, prefer:
+
+- `### STEP 1 — [nome]`
+- `### STEP 2 — [nome]`
+- additional `STEP`s as needed
+- quoted example messages when the user already defined them
+- operational bullets below each step when needed
+
+If the user instead asks for the generic project campaign pattern, you may still use:
+
 - `### 1. Qualificação`
 - `### 2. Apresentação da oferta`
 - `### 3. Próximo passo`
 
-The `Próximo passo` section should usually include:
-
-- `Se o paciente confirmar interesse em agendar, encerre sua fala com: "Vou te encaminhar para agendamento."`
-
-If the campaign has special handoff rules, include them there or in `## Escalonamento`.
+But when the user gives a more specific structure, preserve that structure instead of collapsing it.
 
 ## Writing guidance
 
 - Stay practical and operational.
 - Do not invent prices, exams, benefits, or guarantees that the user did not provide.
 - Use placeholders when details are missing.
-- Prefer concise bullets the user can edit quickly.
+- Prefer concise bullets the user can edit quickly, but preserve longer quoted scripts when the campaign already includes approved wording.
 - Keep the style consistent with the existing campaign files in this repository.
+- If the user provides a full campaign in Markdown-like form, convert it to the repository format with minimal rewriting.
 
 ## When the user asks only for the pattern
 
@@ -66,15 +82,15 @@ Return the base template from `references/template.md`.
 
 Fill what you can:
 
-- campaign name
-- specialty
-- price or price rule
-- target audience
-- offer included
-- qualification questions
-- offer presentation rules
-- handoff rule for scheduling
-- forbidden claims
+- campaign id and display name
+- source and specialty
+- offer anchor
+- handoff target
+- forbidden promises
+- audience and campaign objective
+- named offer options, if any
+- terminology constraints, if any
+- step-by-step sales flow
 - escalation situations
 
 ## If the user asks to create the file too

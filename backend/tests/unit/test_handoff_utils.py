@@ -48,8 +48,11 @@ models_module.SessionContext = SessionContext
 sys.modules["db.models"] = models_module
 
 from agents.handoff_utils import (  # noqa: E402
+    DONE_PHRASES,
+    SCHEDULING_HANDOFF_PHRASES,
     build_combo_scheduling_handoff,
     build_consultation_scheduling_handoff,
+    matches_any_phrase,
     set_combo_flow,
     set_consultation_flow,
 )
@@ -143,6 +146,58 @@ class HandoffUtilsTest(unittest.TestCase):
         self.assertEqual(ctx.flow_type, "combo")
         self.assertEqual(ctx.flow_stage, "waiting_consultation_schedule")
         self.assertEqual(ctx.combo_id, "combo_homem")
+
+
+class MatchesAnyPhraseTest(unittest.TestCase):
+    def test_exact_phrase(self):
+        self.assertTrue(
+            matches_any_phrase(
+                "Vou te encaminhar para agendamento.",
+                SCHEDULING_HANDOFF_PHRASES,
+            )
+        )
+
+    def test_accents_ignored(self):
+        self.assertTrue(
+            matches_any_phrase(
+                "Vou te passar pró agendamento.",
+                SCHEDULING_HANDOFF_PHRASES,
+            )
+        )
+
+    def test_uppercase_ignored(self):
+        self.assertTrue(
+            matches_any_phrase(
+                "VOU TE ENCAMINHAR PARA AGENDAMENTO",
+                SCHEDULING_HANDOFF_PHRASES,
+            )
+        )
+
+    def test_embedded_in_longer_text(self):
+        self.assertTrue(
+            matches_any_phrase(
+                "Perfeito, Maria! Vou te encaminhar para agendamento agora.",
+                SCHEDULING_HANDOFF_PHRASES,
+            )
+        )
+
+    def test_variant_agenda(self):
+        self.assertTrue(
+            matches_any_phrase("Vou te encaminhar para a agenda.", SCHEDULING_HANDOFF_PHRASES)
+        )
+
+    def test_no_match_returns_false(self):
+        self.assertFalse(
+            matches_any_phrase("Posso ajudar em algo mais?", SCHEDULING_HANDOFF_PHRASES)
+        )
+
+    def test_empty_text_returns_false(self):
+        self.assertFalse(matches_any_phrase("", SCHEDULING_HANDOFF_PHRASES))
+        self.assertFalse(matches_any_phrase(None, SCHEDULING_HANDOFF_PHRASES))
+
+    def test_done_phrase_with_accents(self):
+        self.assertTrue(matches_any_phrase("Fico à disposição!", DONE_PHRASES))
+        self.assertTrue(matches_any_phrase("Até logo 👋", DONE_PHRASES))
 
 
 if __name__ == "__main__":

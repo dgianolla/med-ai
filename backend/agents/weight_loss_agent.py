@@ -6,6 +6,11 @@ from anthropic import AsyncAnthropic
 from config import get_settings
 from db.models import SessionContext, AgentResult, HandoffPayload
 from agents.base_agent import BaseAgent
+from agents.handoff_utils import (
+    DONE_PHRASES,
+    SCHEDULING_HANDOFF_PHRASES,
+    matches_any_phrase,
+)
 from agents.prompt_loader import load_prompt
 from campaigns.service import get_campaign_service
 from prompts.composer import (
@@ -35,20 +40,6 @@ PRIORITY_QUEUE_MESSAGE = (
 )
 
 ALL_TOOLS = KNOWLEDGE_TOOLS + CAMPAIGN_TOOLS
-
-_SCHEDULING_HANDOFF_PHRASES = [
-    "vou te encaminhar para agendamento",
-    "vou te encaminhar pro agendamento",
-    "vou te passar pro agendamento",
-    "vou te passar para agendamento",
-    "te encaminhar para a agenda",
-]
-
-_DONE_PHRASES = [
-    "qualquer dúvida, é só chamar",
-    "qualquer coisa, me avisa",
-    "fico à disposição",
-]
 
 _INTEREST_KEYWORDS = {
     "ozempic": ["ozempic", "semaglutida"],
@@ -204,9 +195,7 @@ class WeightLossAgent(BaseAgent):
         done = False
 
         if reply:
-            reply_lower = reply.lower()
-
-            if any(p in reply_lower for p in _SCHEDULING_HANDOFF_PHRASES):
+            if matches_any_phrase(reply, SCHEDULING_HANDOFF_PHRASES):
                 has_slot = await has_endocrino_availability(ENDOCRINO_AVAILABILITY_WINDOW_DAYS)
                 logger.info(
                     "[WEIGHT_LOSS] Checagem de agenda do endócrino | patient=%s | tem_vaga=%s",
@@ -269,7 +258,7 @@ class WeightLossAgent(BaseAgent):
                         "[WEIGHT_LOSS] Lead → fila de encaixe prioritário | patient=%s",
                         patient_name,
                     )
-            elif any(p in reply_lower for p in _DONE_PHRASES):
+            elif matches_any_phrase(reply, DONE_PHRASES):
                 done = True
                 logger.info("[WEIGHT_LOSS] Sessão encerrada | patient=%s", patient_name)
 

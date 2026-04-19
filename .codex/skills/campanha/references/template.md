@@ -1,43 +1,74 @@
 ```md
 ---
-nome: [Nome da campanha]
-especialidade: [especialidade ou deixar vazio]
-valor: [valor, faixa de preço ou regra]
+campaign_id: [slug_unico_em_snake_case]
+campaign_name: [Nome da campanha]
+status: active
+priority: 50
+source: [meta_ads | google_ads | indicacao | outro]
+especialidade: [especialidade principal]
+offer_anchor: [oferta principal ou valor de entrada]
+handoff_target: [scheduling | commercial | human | none]
+forbidden_promises:
+  - "[promessa proibida 1]"
+  - "[promessa proibida 2]"
 ---
 
 ## Sobre a campanha
 
-[Descreva em 1 ou 2 parágrafos o objetivo da campanha, o público-alvo, o que está incluído e o que essa campanha não cobre.]
+[Descreva em 1 ou 2 parágrafos o objetivo da campanha, o público-alvo, a oferta principal e o contexto comercial.]
 
-## Fluxo de atendimento
+## Opções de atendimento
 
-Siga as etapas na ordem. Faça UMA pergunta por vez, estilo WhatsApp. Não despeje várias perguntas ou opções de uma vez.
+| Opção | Valor | Inclui |
+|---|---|---|
+| [Nome da opção 1] | [Valor] | [Itens inclusos] |
+| [Nome da opção 2] | [Valor] | [Itens inclusos] |
 
-### 1. Qualificação
-- Confirmar o nome do paciente.
-- [Pergunta de contexto principal]
-- [Pergunta sobre perfil, histórico ou faixa etária]
-- [Pergunta sobre motivação, necessidade ou objetivo]
+## Nomenclatura obrigatória
 
-### 2. Apresentação da oferta
-- [Explicar com clareza o que esta campanha oferece]
-- [Informar valor, regra de preço ou orientar consulta em ferramenta]
-- [Esclarecer limites da oferta, se houver]
-- [Se perguntar sobre convênio, pagamento, endereço ou horário, dizer como responder]
+Sempre usar [termo correto], nunca [termo incorreto].
 
-### 3. Próximo passo
-- Se o paciente confirmar interesse em agendar, encerre sua fala com: "Vou te encaminhar para agendamento."
-- [Regra adicional de encaminhamento ou fechamento]
-- [Como responder se o paciente quiser pensar ou desistir]
+| Usar | Não usar | Como explicar se o paciente perguntar |
+|---|---|---|
+| [termo correto] | [termo proibido] | "[explicação curta]" |
 
-## Não dizer
+## Steps de atendimento
 
-- [Promessa indevida 1]
-- [Promessa indevida 2]
-- [Afirmação que pode gerar risco comercial, clínico ou jurídico]
+### STEP 1 — Abertura
+> "[mensagem inicial aprovada]"
+
+[Orientação operacional curta para este step.]
+
+### STEP 2 — Descoberta
+> "[pergunta principal]"
+
+- [ramificação ou regra de leitura 1]
+- [ramificação ou regra de leitura 2]
+
+### STEP 3 — Qualificação
+> "[pergunta de qualificação]"
+
+- [como interpretar a resposta]
+
+### STEP 4 — Ancoragem de valor
+- [como apresentar valor antes do preço]
+
+### STEP 5 — Apresentação dos valores
+> "[mensagem ou roteiro de valores]"
+
+### STEP 6 — Objeções
+**"[objeção comum]"**
+> "[resposta aprovada]"
+
+### STEP 7 — Confirmação
+> "[mensagem de fechamento]"
+
+- [dados a coletar]
+- [handoff ou ação esperada]
 
 ## Escalonamento
 
-- [Situação de risco, urgência, incompatibilidade ou fora do escopo] → encerrar com: "Vou te encaminhar agora para nossa equipe."
-- [Outra situação que exige handoff humano] → encerrar com: "Vou te encaminhar agora para nossa equipe."
+- [situação de risco, urgência ou fora da política]
+- [situação comercial que exige equipe humana]
+- [outra condição específica da campanha]
 ```
