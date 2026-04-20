@@ -1,6 +1,5 @@
 import json
 import logging
-from datetime import datetime
 from anthropic import AsyncAnthropic
 
 from config import get_settings
@@ -23,6 +22,7 @@ from tools.campaign_tools import (
 )
 from knowledge.tools import TOOLS as KNOWLEDGE_TOOLS
 from integrations.scheduling_api import cancel_appointment
+from time_utils import clinic_now
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +40,7 @@ class CancellationAgent(BaseAgent):
         patient_name = (ctx.patient_metadata or {}).get("name", "Desconhecido")
         logger.info("[CANCELLATION] Iniciando | patient=%s (%s)", patient_name, ctx.patient_phone)
 
-        now = datetime.now()
+        now = clinic_now()
         core_identity = load_prompt("cancellation").format(
             today=now.strftime("%Y-%m-%d"),
             month=now.strftime("%m"),
@@ -104,7 +104,7 @@ class CancellationAgent(BaseAgent):
                     if block.name == "cancel_appointment" and result.get("success"):
                         ctx.patient_metadata = ctx.patient_metadata or {}
                         ctx.patient_metadata["cancelled"] = True
-                        ctx.patient_metadata["cancelled_at"] = datetime.now().isoformat()
+                        ctx.patient_metadata["cancelled_at"] = clinic_now().isoformat()
                         ctx.patient_metadata["cancel_reason"] = block.input.get("reason", "Não informado")
 
                 messages.append({"role": "user", "content": tool_results})

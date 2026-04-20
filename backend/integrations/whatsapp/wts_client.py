@@ -162,6 +162,20 @@ class WtsClient(WhatsAppClient):
         except Exception as e:
             logger.warning("Erro ao adicionar nota na sessão %s: %s", session_id, e)
 
+    async def complete_session(self, session_id: str) -> None:
+        """Conclui a sessão no wts.chat."""
+        try:
+            async with httpx.AsyncClient(timeout=10) as client:
+                resp = await client.put(
+                    f"{self.base_url}/chat/v1/session/{session_id}/complete",
+                    headers=self._headers(),
+                    json={},
+                )
+                resp.raise_for_status()
+            logger.info("Sessão concluída no wts.chat: %s", session_id)
+        except Exception as e:
+            logger.warning("Erro ao concluir sessão %s no wts.chat: %s", session_id, e)
+
 
 # Instância global reutilizável
 _wts_client: WtsClient | None = None

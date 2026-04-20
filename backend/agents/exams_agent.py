@@ -10,6 +10,11 @@ from agents.handoff_utils import (
     SCHEDULING_HANDOFF_PHRASES,
     matches_any_phrase,
 )
+from agents.exam_quote_utils import (
+    build_exam_quote_handoff,
+    has_exam_order,
+    wants_exam_quote,
+)
 from agents.prompt_loader import load_prompt
 from campaigns.service import get_campaign_service
 from prompts.composer import (
@@ -29,6 +34,13 @@ from tools.campaign_tools import (
 logger = logging.getLogger(__name__)
 
 ALL_TOOLS = CAMPAIGN_TOOLS
+
+
+def _last_user_message(ctx: SessionContext) -> str:
+    return next(
+        (m["content"] for m in reversed(ctx.conversation_history) if m.get("role") == "user"),
+        "",
+    )
 
 def _exam_policy_facts() -> list[str]:
     """Snapshot da política de exames para L5."""
@@ -63,6 +75,19 @@ class ExamsAgent(BaseAgent):
             "[EXAMS] Iniciando | patient=%s (%s) | exam_content=%s",
             patient_name, ctx.patient_phone, bool(ctx.exam_content),
         )
+        last_user_msg = _last_user_message(ctx)
+
+        if wants_exam_quote(last_user_msg) and has_exam_order(ctx, last_user_msg):
+            logger.info("[EXAMS] Escalonando orçamento de exames para humano | patient=%s", patient_name)
+            return AgentResult(
+                reply="Recebi seu pedido. Já vou seguir com o orçamento dos exames pra você.",
+                handoff_target="commercial",
+                handoff_payload=build_exam_quote_handoff(
+                    ctx,
+                    patient_name=(ctx.patient_metadata or {}).get("name"),
+                    previous_agent="exams",
+                ),
+            )
 
         service = get_campaign_service()
 
@@ -151,7 +176,9 @@ class ExamsAgent(BaseAgent):
                     type="to_commercial",
                     patient_name=patient_name_out,
                     reason="Encaminhado pelo agente de exames",
+                    context={"invisible_handoff": True, "previous_agent": "exams"},
                 )
+                reply = None
                 logger.info("[EXAMS] Handoff → commercial | patient=%s", patient_name_out)
             elif matches_any_phrase(reply, SCHEDULING_HANDOFF_PHRASES):
                 handoff_target = "scheduling"
@@ -159,7 +186,9 @@ class ExamsAgent(BaseAgent):
                     type="to_scheduling",
                     patient_name=patient_name_out,
                     reason="Paciente quer agendar consulta após análise de exame",
+                    context={"invisible_handoff": True, "previous_agent": "exams"},
                 )
+                reply = None
                 logger.info("[EXAMS] Handoff → scheduling | patient=%s", patient_name_out)
 
         logger.info(

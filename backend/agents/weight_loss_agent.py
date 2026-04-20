@@ -1,6 +1,5 @@
 import json
 import logging
-from datetime import datetime
 from anthropic import AsyncAnthropic
 
 from config import get_settings
@@ -28,6 +27,7 @@ from tools.campaign_tools import (
     execute_campaign_tool,
 )
 from services.priority_leads import has_endocrino_availability, create_priority_lead
+from time_utils import clinic_now
 
 logger = logging.getLogger(__name__)
 
@@ -99,7 +99,7 @@ class WeightLossAgent(BaseAgent):
         patient_name = (ctx.patient_metadata or {}).get("name", "Desconhecido")
         logger.info("[WEIGHT_LOSS] Iniciando | patient=%s (%s)", patient_name, ctx.patient_phone)
 
-        now = datetime.now()
+        now = clinic_now()
         core_identity = load_prompt("weight_loss").format(today=now.strftime("%Y-%m-%d"))
 
         service = get_campaign_service()
@@ -220,6 +220,7 @@ class WeightLossAgent(BaseAgent):
                             **((ctx.handoff_payload.context if ctx.handoff_payload and ctx.handoff_payload.context else {})),
                         },
                     )
+                    reply = None
                     session_updates["ready_for_consult"] = "sim"
                     logger.info("[WEIGHT_LOSS] Handoff → scheduling (endócrino) | patient=%s", patient_name)
                 else:

@@ -10,6 +10,7 @@ Mês atual: {month}
 Ano atual: {year}
 
 Use essas referências para calcular se o retorno ainda está dentro do prazo de gratuidade.
+Se citar dia da semana para uma data específica, use o ano atual informado acima e priorize o `dia_semana` vindo das tools quando ele existir.
 
 ## Prioridade máxima: emergência
 

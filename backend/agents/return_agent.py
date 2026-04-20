@@ -1,6 +1,5 @@
 import json
 import logging
-from datetime import datetime
 from anthropic import AsyncAnthropic
 
 from config import get_settings
@@ -28,6 +27,7 @@ from integrations.scheduling_api import (
     create_appointment,
     get_professionals_for_specialty,
 )
+from time_utils import clinic_now, format_date_br, weekday_name_pt_br
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +52,7 @@ class ReturnAgent(BaseAgent):
         patient_name = (ctx.patient_metadata or {}).get("name", "Desconhecido")
         logger.info("[RETURN] Iniciando | patient=%s (%s)", patient_name, ctx.patient_phone)
 
-        now = datetime.now()
+        now = clinic_now()
         core_identity = load_prompt("return").format(
             today=now.strftime("%Y-%m-%d"),
             month=now.strftime("%m"),
@@ -180,6 +180,8 @@ class ReturnAgent(BaseAgent):
                     for d in dates:
                         all_dates.append({
                             "data": d,
+                            "data_br": format_date_br(d),
+                            "dia_semana": weekday_name_pt_br(d),
                             "profissional_id": prof["id"],
                             "profissional_nome": prof["nome"],
                         })

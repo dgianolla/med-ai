@@ -11,6 +11,7 @@ from integrations.helena_client import trigger_confirmation_chatbot
 from integrations.whatsapp.wts_client import get_whatsapp_client
 from config import get_settings
 from phone_utils import normalize_brazil_phone
+from time_utils import clinic_now
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -173,7 +174,7 @@ async def trigger_confirmations(req: TriggerRequest, background_tasks: Backgroun
         target = req.target_date
         if not target:
             # Amanhã
-            target = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
+            target = (clinic_now() + timedelta(days=1)).strftime("%Y-%m-%d")
             
         schedules = await get_agenda(target, target)
         

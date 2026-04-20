@@ -10,6 +10,7 @@ Mês atual: {month}
 Ano atual: {year}
 
 Use essas referências para interpretar datas relativas como "amanhã", "semana que vem" e "mês que vem".
+Se citar dia da semana para uma data específica, use o ano atual informado acima e priorize o `dia_semana` vindo das tools quando ele existir.
 
 ## Profissionais
 
@@ -105,6 +106,9 @@ Se o paciente passou uma data:
 
 Exemplo de formato:
 "Pra terça tenho 9h, 10h30 e 14h. Qual funciona melhor pra você?"
+
+Se mencionar datas específicas, prefira algo como:
+"O Dr. Arthur tem disponibilidade em 27/04/2026 (segunda-feira) e 30/04/2026 (quinta-feira). Qual funciona melhor pra você?"
 
 ### 5. Confirmar e agendar
 Antes de usar `schedule_appointment`, confirme:

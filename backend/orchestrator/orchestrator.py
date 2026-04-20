@@ -21,9 +21,16 @@ def _short(text: str | None, limit: int = 120) -> str:
 
 def _handoff_kind(result: AgentResult) -> str:
     context = result.handoff_payload.context if result.handoff_payload and result.handoff_payload.context else {}
+    if context.get("human_handoff"):
+        return "humano"
     if context.get("invisible_handoff") or context.get("auto_handoff_from_commercial"):
         return "invisivel"
     return "visivel"
+
+
+def _is_human_handoff(result: AgentResult) -> bool:
+    context = result.handoff_payload.context if result.handoff_payload and result.handoff_payload.context else {}
+    return bool(context.get("human_handoff"))
 
 
 async def _persist_message(
@@ -188,6 +195,16 @@ async def dispatch(
 
     sm.append_message(ctx, "user", incoming.text)
 
+    if ctx.flow_stage == "human_handoff":
+        logger.info(
+            "🧑‍💼 HUMANO ATIVO | session=%s | patient=%s | sem resposta automática",
+            ctx.session_id,
+            (ctx.patient_metadata or {}).get("name", "Desconhecido"),
+        )
+        await sm.save(ctx)
+        await _persist_session(ctx)
+        return
+
     # 3.5. Router inteligente: detecta se a mensagem pertence a outro agente
     target_agent = should_handoff(ctx.current_agent, incoming.text)
     if target_agent and target_agent != ctx.current_agent:
@@ -285,6 +302,35 @@ async def dispatch(
 
         # Handoff para próximo agente
         if result.handoff_target and result.handoff_target != agent_id:
+            if _is_human_handoff(result):
+                previous_agent = agent_id
+                context = result.handoff_payload.context or {}
+                ctx.flow_stage = "human_handoff"
+                sm.set_agent(ctx, result.handoff_target, result.handoff_payload)
+                await _persist_session(ctx)
+                await sm.save(ctx)
+
+                logger.info(
+                    "🧑‍💼 HANDOFF HUMANO | from=%s | to=%s | patient=%s | reason=%s",
+                    previous_agent,
+                    result.handoff_target,
+                    patient_name,
+                    _short(result.handoff_payload.reason if result.handoff_payload else "N/A"),
+                )
+
+                tag_name = context.get("human_tag")
+                if tag_name:
+                    await whatsapp.apply_tag(ctx.wts_session_id, tag_name)
+
+                note = context.get("human_note") or (result.handoff_payload.reason if result.handoff_payload else None)
+                if note:
+                    await whatsapp.add_note(ctx.wts_session_id, note)
+
+                if context.get("human_complete_session"):
+                    await whatsapp.complete_session(ctx.wts_session_id)
+
+                break
+
             previous_agent = agent_id
             sm.set_agent(ctx, result.handoff_target, result.handoff_payload)
             await _persist_session(ctx)

@@ -40,3 +40,8 @@ class WhatsAppClient(ABC):
     async def add_note(self, session_id: str, text: str) -> None:
         """Adiciona nota interna à sessão."""
         ...
+
+    @abstractmethod
+    async def complete_session(self, session_id: str) -> None:
+        """Conclui a sessão no provedor, quando suportado."""
+        ...

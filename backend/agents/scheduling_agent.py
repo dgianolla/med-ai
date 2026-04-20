@@ -1,6 +1,5 @@
 import json
 import logging
-from datetime import datetime
 from anthropic import AsyncAnthropic
 from anthropic import APIStatusError
 
@@ -33,6 +32,7 @@ from integrations.scheduling_api import (
     CONVENIOS,
 )
 from services.priority_leads import create_priority_lead
+from time_utils import clinic_now, format_date_br, weekday_name_pt_br
 
 logger = logging.getLogger(__name__)
 
@@ -111,7 +111,7 @@ class SchedulingAgent(BaseAgent):
             sorted((ctx.handoff_payload.context or {}).keys()) if ctx.handoff_payload and ctx.handoff_payload.context else [],
         )
 
-        now = datetime.now()
+        now = clinic_now()
         core_identity = load_prompt("scheduling").format(
             today=now.strftime("%Y-%m-%d"),
             month=now.strftime("%m"),
@@ -301,6 +301,8 @@ class SchedulingAgent(BaseAgent):
                     for d in dates:
                         all_dates.append({
                             "data": d,
+                            "data_br": format_date_br(d),
+                            "dia_semana": weekday_name_pt_br(d),
                             "profissional_id": prof["id"],
                             "profissional_nome": prof["nome"],
                         })

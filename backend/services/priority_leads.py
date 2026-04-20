@@ -18,6 +18,7 @@ from anthropic import AsyncAnthropic
 from config import get_settings
 from db.client import get_supabase
 from integrations.scheduling_api import get_available_dates
+from time_utils import clinic_today
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +35,7 @@ async def has_endocrino_availability(days_ahead: int = 5) -> bool:
     sem garantir que existem horários livres dentro delas. Suficiente para
     decidir se faz handoff normal pro scheduling ou cai na fila de encaixe.
     """
-    today = datetime.now().date()
+    today = clinic_today()
     target = today + timedelta(days=days_ahead)
 
     months_to_check: set[tuple[int, int]] = {(today.month, today.year)}

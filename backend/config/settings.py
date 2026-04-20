@@ -40,6 +40,7 @@ class Settings(BaseSettings):
     message_buffer_seconds: int = 10
     message_buffer_ttl_seconds: int = 120
     webhook_secret: str = ""
+    clinic_timezone: str = "America/Sao_Paulo"
 
     class Config:
         env_file = ".env"

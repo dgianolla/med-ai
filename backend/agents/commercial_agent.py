@@ -14,6 +14,13 @@ from agents.handoff_utils import (
     set_combo_flow,
     set_consultation_flow,
 )
+from agents.exam_quote_utils import (
+    build_exam_quote_handoff,
+    has_exam_order,
+    has_exam_quote_handoff_context,
+    recent_history_indicates_exam_quote,
+    wants_exam_quote,
+)
 from agents.prompt_loader import load_prompt
 from campaigns.service import get_campaign_service
 from prompts.composer import (
@@ -112,6 +119,25 @@ class CommercialAgent(BaseAgent):
                             else {}
                         ),
                     },
+                ),
+            )
+
+        if (
+            (wants_exam_quote(last_user_msg) or recent_history_indicates_exam_quote(ctx))
+            and (has_exam_order(ctx, last_user_msg) or has_exam_quote_handoff_context(ctx))
+        ):
+            logger.info(
+                "[COMMERCIAL] Escalonando orçamento de exames para humano | patient=%s | msg=%s",
+                patient_name,
+                last_user_msg[:120],
+            )
+            return AgentResult(
+                reply="Recebi seu pedido. Já vou seguir com o orçamento dos exames pra você.",
+                handoff_target="commercial",
+                handoff_payload=build_exam_quote_handoff(
+                    ctx,
+                    patient_name=(ctx.patient_metadata or {}).get("name"),
+                    previous_agent="commercial",
                 ),
             )
 
@@ -218,6 +244,7 @@ class CommercialAgent(BaseAgent):
                 source_agent="commercial",
                 combo=confirmed_combo,
             )
+            reply = None
 
         elif reply:
             if matches_any_phrase(reply, SCHEDULING_HANDOFF_PHRASES):
@@ -229,6 +256,7 @@ class CommercialAgent(BaseAgent):
                     reason="Paciente quer agendar consulta após atendimento comercial",
                     source_agent="commercial",
                 )
+                reply = None
                 logger.info("[COMMERCIAL] Handoff → scheduling | patient=%s", patient_name)
             elif matches_any_phrase(reply, DONE_PHRASES):
                 done = True
