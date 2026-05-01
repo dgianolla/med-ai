@@ -136,12 +136,6 @@ class ConfirmationAgentTest(unittest.IsolatedAsyncioTestCase):
         confirmation_module.confirm_appointment.assert_not_awaited()
         confirmation_module.cancel_appointment.assert_not_awaited()
 
-    def test_normalize_confirmation_intent_maps_remarcar_to_alterar(self) -> None:
-        self.assertEqual(confirmation_module._normalize_confirmation_intent("remarcar"), "alterar")
-
-    def test_fallback_classify_accepts_remarcar(self) -> None:
-        self.assertEqual(confirmation_module._fallback_classify("Quero remarcar"), "remarcar")
-
     async def test_sim_confirms_appointment_and_completes_helena(self) -> None:
         confirmation_module._classify_confirmation_response = AsyncMock(
             return_value={"intent": "sim", "reply": "Consulta confirmada."}

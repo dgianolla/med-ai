@@ -77,12 +77,12 @@ async def _classify_confirmation_response(text: str, patient_name: str | None) -
     system = (
         "Você responde pacientes em um canal exclusivo de confirmação de consultas. "
         "Receberá uma resposta curta após a mensagem: SIM para confirmar, NÃO para não comparecer, "
-        "REMARCAR para mudar data ou horário, ou algo fora de contexto. "
+        "ALTERAR para mudar data ou horário, ou algo fora de contexto. "
         "Sua tarefa é retornar APENAS JSON válido com as chaves intent e reply. "
         "Rótulos permitidos: sim, nao, alterar, fora_de_contexto. "
         "- sim: o paciente confirma que vai comparecer (ex.: 'sim', 'confirmo', 'ok', 'estarei aí'). "
         "- nao: o paciente diz que não vai comparecer ou quer cancelar. "
-        "- alterar: o paciente quer remarcar, alterar horário/data ou reagendar. "
+        "- alterar: o paciente quer alterar horário/data, remarcar ou reagendar. "
         "- fora_de_contexto: qualquer outra coisa — dúvidas, saudações, reclamações, "
         "áudios/imagens ou assuntos não relacionados. "
         "A reply deve seguir o tom da mensagem original: cordial, objetiva e curta. "
@@ -95,7 +95,7 @@ async def _classify_confirmation_response(text: str, patient_name: str | None) -
         f"Nome do paciente: {patient_name or 'Paciente'}\n"
         "Mensagem de contexto enviada ao paciente:\n"
         "\"Por favor, responda conforme abaixo: SIM para confirmar presença, "
-        "NÃO caso não possa comparecer, REMARCAR para mudar data ou horário.\"\n\n"
+        "NÃO caso não possa comparecer, ALTERAR para mudar data ou horário.\"\n\n"
         f"Resposta do paciente: {text}\n\n"
         'Formato obrigatório: {"intent":"sim|nao|alterar|fora_de_contexto","reply":"..."}'
     )
