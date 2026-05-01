@@ -1,6 +1,6 @@
 import logging
 import asyncio
-from datetime import datetime, timedelta
+from datetime import timedelta
 from typing import Optional
 from pydantic import BaseModel
 from fastapi import APIRouter, BackgroundTasks, HTTPException
@@ -11,6 +11,7 @@ from integrations.helena_client import trigger_confirmation_chatbot
 from integrations.whatsapp.wts_client import get_whatsapp_client
 from config import get_settings
 from phone_utils import normalize_brazil_phone
+from services.confirmation_message_builder import build_confirmation_message
 from time_utils import clinic_now
 
 logger = logging.getLogger(__name__)
@@ -19,41 +20,6 @@ router = APIRouter()
 class TriggerRequest(BaseModel):
     delay_seconds: int = 300
     target_date: Optional[str] = None  # YYYY-MM-DD (defaults to tomorrow)
-
-
-def _format_appointment_date(date_str: str | None) -> str:
-    if not date_str:
-        return ""
-    try:
-        return datetime.strptime(date_str, "%Y-%m-%d").strftime("%d/%m/%Y")
-    except ValueError:
-        return date_str
-
-
-def _format_appointment_time(time_str: str | None) -> str:
-    time_str = (time_str or "").strip()
-    return time_str[:5] if time_str else ""
-
-
-def _build_confirmation_message(schedule: dict) -> str:
-    patient_name = schedule.get("nome", "Paciente")
-    professional_name = ((schedule.get("profissionalSaude") or {}).get("nome") or "seu médico").strip()
-    appointment_date = _format_appointment_date(schedule.get("data"))
-    appointment_time = _format_appointment_time(schedule.get("horaInicio"))
-
-    return (
-        f"Olá, {patient_name}! Tudo bem? 😊\n"
-        "Aqui é da Atend Já.\n\n"
-        f"Estamos confirmando sua consulta com {professional_name} no dia {appointment_date} às {appointment_time}.\n\n"
-        "Por favor, responda conforme abaixo:\n"
-        "👉 SIM – para confirmar presença\n"
-        "👉 NÃO – caso não possa comparecer\n"
-        "👉 REMARCAR – para alterar o horário, fale pelo WhatsApp: (15) 99695-0709\n\n"
-        "⚠️ Este canal é exclusivo para confirmação de consultas.\n"
-        "❗ Mensagens fora desse escopo não serão respondidas.\n\n"
-        "Para dúvidas ou outros assuntos, entre em contato com a clínica pelo nosso canal oficial de atendimento."
-    )
-
 async def _dispatch_confirmations(schedules: list, delay_seconds: int):
     """Processa a fila de envios com o atraso configurado."""
     total = len(schedules)
@@ -103,16 +69,18 @@ async def _dispatch_confirmations(schedules: list, delay_seconds: int):
                 logger.info("[DISPATCH] %d/%d enviando | appointment_id=%s | phone=%s", idx, total, appointment_id, phone)
 
                 try:
-                    confirmation_message = _build_confirmation_message(sched)
+                    confirmation_message = build_confirmation_message(sched)
                     msg_id = await wts_client.send_outbound_text(
                         to_phone=phone,
-                        text=confirmation_message,
+                        text=confirmation_message.text,
                         from_channel_id=channel_id,
                     )
 
                     await db.table("schedule_confirmations").update({
                         "status": "sent",
                         "message_id": msg_id,
+                        "template_key": confirmation_message.template_key,
+                        "template_version": confirmation_message.template_version,
                     }).eq("id", conf_id).execute()
 
                     sent_count += 1
