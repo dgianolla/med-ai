@@ -19,6 +19,54 @@ def _helena_headers() -> dict[str, str]:
     return headers
 
 
+async def send_confirmation_template_batch(messages: list[dict]) -> list[dict]:
+    """
+    Envia um template de confirmação em lote para até 100 destinatários.
+    O bot de resposta pode ser ativado no próprio options.enableBot.
+    """
+    settings = get_settings()
+    from_channel = (settings.wts_confirmation_channel_id or "").strip()
+    template_id = (settings.wts_confirmation_template_id or "").strip()
+
+    if not from_channel:
+        raise ValueError("WTS_CONFIRMATION_CHANNEL_ID não configurado")
+    if not template_id:
+        raise ValueError("WTS_CONFIRMATION_TEMPLATE_ID não configurado")
+    if not messages:
+        return []
+    if len(messages) > 100:
+        raise ValueError("O endpoint batch aceita no máximo 100 mensagens por requisição")
+
+    payload = {
+        "from": from_channel,
+        "templateId": template_id,
+        "options": {
+            "enableBot": settings.wts_confirmation_enable_bot,
+            "hiddenSession": settings.wts_confirmation_hidden_session,
+            "forceStartSession": settings.wts_confirmation_force_start_session,
+        },
+        "messages": messages,
+    }
+
+    async with httpx.AsyncClient(timeout=30) as client:
+        response = await client.post(
+            f"{settings.helena_api_base_url}/chat/v1/send/template/batch",
+            headers=_helena_headers(),
+            json=payload,
+        )
+        response.raise_for_status()
+        data = response.json()
+
+    results = data.get("results") or []
+    logger.info(
+        "[HELENA] Lote de template enviado | template_id=%s | total=%d | resultados=%d",
+        template_id,
+        len(messages),
+        len(results),
+    )
+    return results
+
+
 async def trigger_confirmation_chatbot(to_phone: str) -> None:
     """
     Ativa o chatbot da Helena responsável por capturar as respostas no fluxo

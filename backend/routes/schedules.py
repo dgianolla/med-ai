@@ -2,19 +2,20 @@ import logging
 import asyncio
 from datetime import datetime, timedelta
 from typing import Optional
-from pydantic import BaseModel
-from fastapi import APIRouter, BackgroundTasks, HTTPException
 
-from db.client import get_supabase
-from integrations.scheduling_api import get_agenda
-from integrations.helena_client import trigger_confirmation_chatbot
-from integrations.whatsapp.wts_client import get_whatsapp_client
+from fastapi import APIRouter, BackgroundTasks, HTTPException
+from pydantic import BaseModel
+
 from config import get_settings
+from db.client import get_supabase
+from integrations.helena_client import send_confirmation_template_batch
+from integrations.scheduling_api import get_agenda
 from phone_utils import normalize_brazil_phone
 from time_utils import clinic_now
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
 
 class TriggerRequest(BaseModel):
     delay_seconds: int = 300
@@ -35,52 +36,61 @@ def _format_appointment_time(time_str: str | None) -> str:
     return time_str[:5] if time_str else ""
 
 
-def _build_confirmation_message(schedule: dict) -> str:
-    patient_name = schedule.get("nome", "Paciente")
-    professional_name = ((schedule.get("profissionalSaude") or {}).get("nome") or "seu médico").strip()
-    appointment_date = _format_appointment_date(schedule.get("data"))
-    appointment_time = _format_appointment_time(schedule.get("horaInicio"))
+def _chunk_list(items: list, size: int) -> list[list]:
+    return [items[idx:idx + size] for idx in range(0, len(items), size)]
 
-    return (
-        f"Olá, {patient_name}! Tudo bem? 😊\n"
-        "Aqui é da Atend Já.\n\n"
-        f"Estamos confirmando sua consulta com {professional_name} no dia {appointment_date} às {appointment_time}.\n\n"
-        "Por favor, responda conforme abaixo:\n"
-        "👉 SIM – para confirmar presença\n"
-        "👉 NÃO – caso não possa comparecer\n"
-        "👉 REMARCAR – para alterar o horário, fale pelo WhatsApp: (15) 99695-0709\n\n"
-        "⚠️ Este canal é exclusivo para confirmação de consultas.\n"
-        "❗ Mensagens fora desse escopo não serão respondidas.\n\n"
-        "Para dúvidas ou outros assuntos, entre em contato com a clínica pelo nosso canal oficial de atendimento."
-    )
+
+def _build_template_parameters(schedule: dict) -> dict[str, str]:
+    return {
+        "MEDICO": ((schedule.get("profissionalSaude") or {}).get("nome") or "seu médico").strip(),
+        "DATA": _format_appointment_date(schedule.get("data")),
+        "HORARIO": _format_appointment_time(schedule.get("horaInicio")),
+    }
+
+
+def _build_session_metadata(schedule: dict, phone: str) -> dict[str, str]:
+    return {
+        "appointment_id": str(schedule.get("id") or ""),
+        "patient_name": str(schedule.get("nome", "Paciente")),
+        "patient_phone": phone,
+        "appointment_date": str(schedule.get("data") or ""),
+        "appointment_time": str(schedule.get("horaInicio") or ""),
+        "professional_name": str((schedule.get("profissionalSaude") or {}).get("nome") or ""),
+    }
+
 
 async def _dispatch_confirmations(schedules: list, delay_seconds: int):
-    """Processa a fila de envios com o atraso configurado."""
+    """Processa a fila de envios em lotes de template com atraso configurado entre lotes."""
     total = len(schedules)
     logger.info("[DISPATCH] Iniciando fila | total=%d | delay=%ds", total, delay_seconds)
 
     try:
         db = await get_supabase()
-        wts_client = get_whatsapp_client()
-        channel_id = get_settings().wts_confirmation_channel_id
+        settings = get_settings()
+        channel_id = settings.wts_confirmation_channel_id
+        template_id = settings.wts_confirmation_template_id
 
         if not channel_id:
             logger.error("[DISPATCH] WTS_CONFIRMATION_CHANNEL_ID não configurado — abortando fila")
+            return
+        if not template_id:
+            logger.error("[DISPATCH] WTS_CONFIRMATION_TEMPLATE_ID não configurado — abortando fila")
             return
 
         sent_count = 0
         skipped_count = 0
         failed_count = 0
+        pending_items: list[dict] = []
 
         for idx, sched in enumerate(schedules, start=1):
             appointment_id = sched.get("id")
-            try:
-                phone = normalize_brazil_phone(sched.get("telefonePrincipal"))
-                if not phone:
-                    skipped_count += 1
-                    logger.info("[DISPATCH] %d/%d pulado (sem telefone) | appointment_id=%s", idx, total, appointment_id)
-                    continue
+            phone = normalize_brazil_phone(sched.get("telefonePrincipal"))
+            if not phone:
+                skipped_count += 1
+                logger.info("[DISPATCH] %d/%d pulado (sem telefone) | appointment_id=%s", idx, total, appointment_id)
+                continue
 
+            try:
                 existing = await db.table("schedule_confirmations").select("id, status").eq("appointment_id", appointment_id).execute()
                 if existing.data and existing.data[0]["status"] != "failed":
                     skipped_count += 1
@@ -100,63 +110,85 @@ async def _dispatch_confirmations(schedules: list, delay_seconds: int):
                 upserted = await db.table("schedule_confirmations").upsert(row, on_conflict="appointment_id").execute()
                 conf_id = upserted.data[0]["id"]
 
-                logger.info("[DISPATCH] %d/%d enviando | appointment_id=%s | phone=%s", idx, total, appointment_id, phone)
-
-                try:
-                    confirmation_message = _build_confirmation_message(sched)
-                    msg_id = await wts_client.send_outbound_text(
-                        to_phone=phone,
-                        text=confirmation_message,
-                        from_channel_id=channel_id,
-                    )
-
-                    await db.table("schedule_confirmations").update({
-                        "status": "sent",
-                        "message_id": msg_id,
-                    }).eq("id", conf_id).execute()
-
-                    sent_count += 1
-                    logger.info("[DISPATCH] %d/%d enviado | appointment_id=%s | msg_id=%s", idx, total, appointment_id, msg_id)
-
-                    helena_delay = get_settings().wts_confirmation_trigger_delay_seconds
-                    if helena_delay > 0:
-                        logger.info(
-                            "[DISPATCH] %d/%d aguardando %ss para acionar Helena | appointment_id=%s",
-                            idx,
-                            total,
-                            helena_delay,
-                            appointment_id,
-                        )
-                        await asyncio.sleep(helena_delay)
-
-                    logger.info(
-                        "[DISPATCH] %d/%d acionando Helena | appointment_id=%s",
-                        idx,
-                        total,
-                        appointment_id,
-                    )
-                    try:
-                        await trigger_confirmation_chatbot(phone)
-                    except Exception as e:
-                        logger.error(
-                            "[DISPATCH] %d/%d falha ao acionar Helena | appointment_id=%s | erro=%s",
-                            idx,
-                            total,
-                            appointment_id,
-                            e,
-                            exc_info=True,
-                        )
-
-                except Exception as e:
-                    failed_count += 1
-                    logger.error("[DISPATCH] %d/%d falha no WTS | appointment_id=%s | erro=%s", idx, total, appointment_id, e, exc_info=True)
-                    await db.table("schedule_confirmations").update({"status": "failed"}).eq("id", conf_id).execute()
-
-                await asyncio.sleep(delay_seconds)
-
+                pending_items.append({
+                    "appointment_id": str(appointment_id),
+                    "confirmation_id": conf_id,
+                    "message": {
+                        "to": phone,
+                        "senderId": str(appointment_id),
+                        "parameters": _build_template_parameters(sched),
+                        "sessionMetadata": _build_session_metadata(sched, phone),
+                        **({"callbackUrl": settings.wts_confirmation_callback_url} if settings.wts_confirmation_callback_url else {}),
+                    },
+                })
+                logger.info("[DISPATCH] %d/%d pronto para lote | appointment_id=%s | phone=%s", idx, total, appointment_id, phone)
             except Exception as e:
                 failed_count += 1
-                logger.error("[DISPATCH] %d/%d erro no loop | appointment_id=%s | erro=%s", idx, total, appointment_id, e, exc_info=True)
+                logger.error("[DISPATCH] %d/%d erro na preparação | appointment_id=%s | erro=%s", idx, total, appointment_id, e, exc_info=True)
+
+        batches = _chunk_list(pending_items, 100)
+        for batch_idx, batch in enumerate(batches, start=1):
+            logger.info("[DISPATCH] Enviando lote %d/%d | tamanho=%d", batch_idx, len(batches), len(batch))
+            try:
+                results = await send_confirmation_template_batch([item["message"] for item in batch])
+                results_by_sender = {
+                    str(result.get("senderId") or ""): result
+                    for result in results
+                    if result.get("senderId")
+                }
+
+                for item in batch:
+                    appointment_id = item["appointment_id"]
+                    conf_id = item["confirmation_id"]
+                    result = results_by_sender.get(appointment_id)
+
+                    if not result:
+                        failed_count += 1
+                        logger.error("[DISPATCH] Resultado ausente no lote | appointment_id=%s", appointment_id)
+                        await db.table("schedule_confirmations").update({"status": "failed"}).eq("id", conf_id).execute()
+                        continue
+
+                    remote_status = (result.get("status") or "").upper()
+                    local_status = "failed" if remote_status == "FAILED" else "sent"
+                    update_fields = {
+                        "status": local_status,
+                        "message_id": result.get("id"),
+                    }
+                    session_id = result.get("sessionId")
+                    if session_id:
+                        update_fields["session_id"] = session_id
+                        update_fields["helena_session_id"] = session_id
+
+                    await db.table("schedule_confirmations").update(update_fields).eq("id", conf_id).execute()
+
+                    if local_status == "sent":
+                        sent_count += 1
+                        logger.info(
+                            "[DISPATCH] Lote %d/%d enviado | appointment_id=%s | msg_id=%s | session_id=%s | remote_status=%s",
+                            batch_idx,
+                            len(batches),
+                            appointment_id,
+                            result.get("id"),
+                            session_id,
+                            remote_status,
+                        )
+                    else:
+                        failed_count += 1
+                        logger.error(
+                            "[DISPATCH] Lote %d/%d falhou | appointment_id=%s | motivo=%s",
+                            batch_idx,
+                            len(batches),
+                            appointment_id,
+                            result.get("failedReason"),
+                        )
+            except Exception as e:
+                failed_count += len(batch)
+                logger.error("[DISPATCH] Falha no envio do lote %d/%d | erro=%s", batch_idx, len(batches), e, exc_info=True)
+                for item in batch:
+                    await db.table("schedule_confirmations").update({"status": "failed"}).eq("id", item["confirmation_id"]).execute()
+
+            if batch_idx < len(batches) and delay_seconds > 0:
+                await asyncio.sleep(delay_seconds)
 
         logger.info(
             "[DISPATCH] Finalizado | total=%d | enviados=%d | pulados=%d | falhas=%d",

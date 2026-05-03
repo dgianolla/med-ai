@@ -14,7 +14,7 @@ from integrations.scheduling_api import cancel_appointment, confirm_appointment
 
 logger = logging.getLogger(__name__)
 
-CONFIRMATION_INTENTS = {"sim", "nao", "remarcar", "alterar", "fora_de_contexto"}
+CONFIRMATION_INTENTS = {"sim", "nao", "fora_de_contexto"}
 
 _CLINIC_WHATSAPP = "(15) 99695-0709"
 
@@ -28,14 +28,8 @@ def _fallback_classify(text: str) -> str:
     nao_patterns = [
         r"\b(n[aã]o|nao vou|n[aã]o consigo|n[aã]o poderei|n[aã]o posso|cancelar|cancela|cancelo)\b",
     ]
-    remarcar_patterns = [
-        r"\b(remarcar|remarca[cç][aã]o|reagendar|reagendamento|alterar|alteracao|alteração|trocar horario|trocar horário|outro horario|outro horário)\b",
-    ]
-
     if any(re.search(p, text) for p in nao_patterns):
         return "nao"
-    if any(re.search(p, text) for p in remarcar_patterns):
-        return "remarcar"
     if any(re.search(p, text) for p in sim_patterns):
         return "sim"
     return "fora_de_contexto"
@@ -53,21 +47,14 @@ def _fallback_reply(intent: str, patient_name: str | None) -> str:
         return (
             f"Tudo certo, {name}.\n\n"
             "Registramos que você não poderá comparecer.\n"
-            f"Se quiser remarcar, fale com a clínica pelo WhatsApp: 📲 {_CLINIC_WHATSAPP}"
-        )
-    if intent in {"remarcar", "alterar"}:
-        return (
-            f"Sem problema, {name}.\n\n"
-            "Para alterar sua consulta, fale com a clínica pelo WhatsApp:\n"
+            "Se precisar de ajuda com outro assunto, fale com a clínica pelo WhatsApp:\n"
             f"📲 {_CLINIC_WHATSAPP}"
         )
     return _build_out_of_context_reply(patient_name)
 
 
 def _normalize_confirmation_intent(intent: str | None) -> str:
-    if intent == "remarcar":
-        return "alterar"
-    return intent or "fora_de_contexto"
+    return intent if intent in CONFIRMATION_INTENTS else "fora_de_contexto"
 
 
 async def _classify_confirmation_response(text: str, patient_name: str | None) -> dict[str, str]:
@@ -77,16 +64,15 @@ async def _classify_confirmation_response(text: str, patient_name: str | None) -
     system = (
         "Você responde pacientes em um canal exclusivo de confirmação de consultas. "
         "Receberá uma resposta curta após a mensagem: SIM para confirmar, NÃO para não comparecer, "
-        "ALTERAR para mudar data ou horário, ou algo fora de contexto. "
+        "ou algo fora de contexto. "
         "Sua tarefa é retornar APENAS JSON válido com as chaves intent e reply. "
-        "Rótulos permitidos: sim, nao, alterar, fora_de_contexto. "
+        "Rótulos permitidos: sim, nao, fora_de_contexto. "
         "- sim: o paciente confirma que vai comparecer (ex.: 'sim', 'confirmo', 'ok', 'estarei aí'). "
         "- nao: o paciente diz que não vai comparecer ou quer cancelar. "
-        "- alterar: o paciente quer alterar horário/data, remarcar ou reagendar. "
         "- fora_de_contexto: qualquer outra coisa — dúvidas, saudações, reclamações, "
         "áudios/imagens ou assuntos não relacionados. "
         "A reply deve seguir o tom da mensagem original: cordial, objetiva e curta. "
-        "Para alterar ou fora_de_contexto, direcione para o WhatsApp da clínica "
+        "Para fora_de_contexto, direcione para o WhatsApp da clínica "
         f"{_CLINIC_WHATSAPP}. "
         "Não invente informações. Não use markdown complexo."
     )
@@ -95,9 +81,9 @@ async def _classify_confirmation_response(text: str, patient_name: str | None) -
         f"Nome do paciente: {patient_name or 'Paciente'}\n"
         "Mensagem de contexto enviada ao paciente:\n"
         "\"Por favor, responda conforme abaixo: SIM para confirmar presença, "
-        "NÃO caso não possa comparecer, ALTERAR para mudar data ou horário.\"\n\n"
+        "NÃO caso não possa comparecer.\"\n\n"
         f"Resposta do paciente: {text}\n\n"
-        'Formato obrigatório: {"intent":"sim|nao|alterar|fora_de_contexto","reply":"..."}'
+        'Formato obrigatório: {"intent":"sim|nao|fora_de_contexto","reply":"..."}'
     )
 
     response = await client.messages.create(
@@ -272,9 +258,6 @@ async def handle_confirmation(message: IncomingMessage) -> dict[str, Any] | None
             )
         new_status = "canceled"
 
-    elif intent == "alterar":
-        new_status = "sent"
-
     else:  # fora_de_contexto
         new_status = "sent"  # não finaliza — paciente pode responder SIM/NAO depois
 
@@ -284,7 +267,7 @@ async def handle_confirmation(message: IncomingMessage) -> dict[str, Any] | None
         except Exception as e:
             logger.error("Erro ao atualizar status da confirmação %s: %s", active["id"], e)
 
-    if intent in {"sim", "nao", "alterar"}:
+    if intent in {"sim", "nao"}:
         await _complete_helena_confirmation_session(helena_session_id, appointment_id)
 
     logger.info(
@@ -301,7 +284,7 @@ async def handle_confirmation(message: IncomingMessage) -> dict[str, Any] | None
         "intent": intent,
         "status": new_status,
         "reply": reply,
-        "is_final": intent in {"sim", "nao", "alterar"},
+        "is_final": intent in {"sim", "nao"},
     }
 
 

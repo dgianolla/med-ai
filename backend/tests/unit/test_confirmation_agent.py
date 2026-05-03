@@ -114,18 +114,22 @@ class ConfirmationAgentTest(unittest.IsolatedAsyncioTestCase):
         confirmation_module.confirm_appointment = AsyncMock(return_value={"ok": True})
         confirmation_module.cancel_appointment = AsyncMock(return_value={"ok": True})
 
-    async def test_alterar_persists_session_and_completes_helena(self) -> None:
+    async def test_nao_cancels_appointment_and_completes_helena(self) -> None:
         confirmation_module._classify_confirmation_response = AsyncMock(
-            return_value={"intent": "alterar", "reply": "Vamos ajustar pelo WhatsApp da clínica."}
+            return_value={"intent": "nao", "reply": "Tudo certo, Maria."}
         )
 
-        result = await confirmation_module.handle_confirmation(make_message("ALTERAR"))
+        result = await confirmation_module.handle_confirmation(make_message("NÃO"))
 
-        self.assertEqual(result["intent"], "alterar")
-        self.assertEqual(result["status"], "sent")
+        self.assertEqual(result["intent"], "nao")
+        self.assertEqual(result["status"], "canceled")
         self.assertTrue(result["is_final"])
         confirmation_module._update_confirmation.assert_any_await(
             {"helena_session_id": "helena-session-1"},
+            "confirmation-1",
+        )
+        confirmation_module._update_confirmation.assert_any_await(
+            {"status": "canceled"},
             "confirmation-1",
         )
         confirmation_module.complete_session.assert_awaited_once_with(
@@ -134,7 +138,10 @@ class ConfirmationAgentTest(unittest.IsolatedAsyncioTestCase):
             stop_bot_in_execution=True,
         )
         confirmation_module.confirm_appointment.assert_not_awaited()
-        confirmation_module.cancel_appointment.assert_not_awaited()
+        confirmation_module.cancel_appointment.assert_awaited_once_with(
+            "appointment-1",
+            reason="Paciente não confirmou a consulta via WhatsApp",
+        )
 
     async def test_sim_confirms_appointment_and_completes_helena(self) -> None:
         confirmation_module._classify_confirmation_response = AsyncMock(

@@ -26,6 +26,11 @@ class Settings(BaseSettings):
     wts_api_key: str = ""
     wts_confirmation_channel_id: str = ""
     wts_confirmation_from_phone: str = ""
+    wts_confirmation_template_id: str = ""
+    wts_confirmation_callback_url: str = ""
+    wts_confirmation_enable_bot: bool = True
+    wts_confirmation_hidden_session: bool = True
+    wts_confirmation_force_start_session: bool = False
 
     # wts.chat chatbot trigger
     helena_api_base_url: str = "https://api.helena.run"
