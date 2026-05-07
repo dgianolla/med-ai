@@ -44,9 +44,14 @@ class HTTPException(Exception):
     pass
 
 
+class Request:
+    pass
+
+
 fastapi_stub.APIRouter = APIRouter
 fastapi_stub.BackgroundTasks = BackgroundTasks
 fastapi_stub.HTTPException = HTTPException
+fastapi_stub.Request = Request
 sys.modules.setdefault("fastapi", fastapi_stub)
 
 config_stub = ModuleType("config")
@@ -145,10 +150,13 @@ class SchedulesConfirmationBatchTest(unittest.TestCase):
 
 
 class _FakeQuery:
-    def __init__(self, response):
+    def __init__(self, response, on_execute=None):
         self._response = response
+        self._on_execute = on_execute
+        self._filters = []
 
-    def eq(self, *_args, **_kwargs):
+    def eq(self, column, value):
+        self._filters.append((column, value))
         return self
 
     def order(self, *_args, **_kwargs):
@@ -158,26 +166,34 @@ class _FakeQuery:
         return self
 
     async def execute(self):
+        if self._on_execute:
+            self._on_execute(self._filters)
         return self._response
 
 
 class _FakeTable:
     def __init__(self):
         self.rows = []
-        self.last_update = None
+        self.update_history = []
 
     def select(self, *_args, **_kwargs):
         return _FakeQuery(type("Resp", (), {"data": []})())
 
     def upsert(self, row, on_conflict=None):
         stored = dict(row)
-        stored["id"] = "confirmation-1"
+        stored["id"] = f"confirmation-{stored['appointment_id']}"
         self.rows.append(stored)
         return _FakeQuery(type("Resp", (), {"data": [stored]})())
 
     def update(self, fields):
-        self.last_update = fields
-        return _FakeQuery(type("Resp", (), {"data": [fields]})())
+        def _apply(filters):
+            self.update_history.append(dict(fields))
+            for column, value in filters:
+                for row in self.rows:
+                    if row.get(column) == value:
+                        row.update(fields)
+
+        return _FakeQuery(type("Resp", (), {"data": [fields]})(), on_execute=_apply)
 
 
 class _FakeDb:
@@ -222,9 +238,54 @@ class DispatchConfirmationsTest(unittest.IsolatedAsyncioTestCase):
 
         schedules_module.trigger_confirmation_chatbot.assert_awaited_once_with("5515999999999")
         self.assertEqual(
-            fake_db.schedule_confirmations.last_update["status"],
+            fake_db.schedule_confirmations.rows[0]["status"],
             "sent",
         )
+
+    async def test_dispatch_queues_extra_appointments_for_same_phone(self) -> None:
+        fake_db = _FakeDb()
+        schedules_module.get_supabase = AsyncMock(return_value=fake_db)
+        schedules_module.get_settings = lambda: SimpleNamespace(
+            wts_confirmation_channel_id="channel-1",
+            wts_confirmation_template_id="template-1",
+            wts_confirmation_callback_url="",
+        )
+        schedules_module.send_confirmation_template_batch = AsyncMock(return_value=[
+            {
+                "senderId": "123",
+                "status": "SENT",
+                "id": "message-1",
+                "sessionId": "helena-session-1",
+            }
+        ])
+        schedules_module.trigger_confirmation_chatbot = AsyncMock()
+
+        schedules = [
+            {
+                "id": 123,
+                "nome": "Maria",
+                "telefonePrincipal": "5515999999999",
+                "data": "2026-05-03",
+                "horaInicio": "08:30:00",
+                "profissionalSaude": {"nome": "Dra. Silmara"},
+            },
+            {
+                "id": 124,
+                "nome": "João",
+                "telefonePrincipal": "5515999999999",
+                "data": "2026-05-03",
+                "horaInicio": "09:00:00",
+                "profissionalSaude": {"nome": "Dr. Ricardo"},
+            },
+        ]
+
+        await schedules_module._dispatch_confirmations(schedules, delay_seconds=0)
+
+        schedules_module.send_confirmation_template_batch.assert_awaited_once()
+        sent_ids = [row["appointment_id"] for row in fake_db.schedule_confirmations.rows if row["status"] == "sent"]
+        queued_ids = [row["appointment_id"] for row in fake_db.schedule_confirmations.rows if row["status"] == "queued"]
+        self.assertEqual(sent_ids, [123])
+        self.assertEqual(queued_ids, [124])
 
 
 if __name__ == "__main__":

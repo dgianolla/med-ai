@@ -113,6 +113,8 @@ class ConfirmationAgentTest(unittest.IsolatedAsyncioTestCase):
         confirmation_module.complete_session = AsyncMock(return_value={"id": "helena-session-1"})
         confirmation_module.confirm_appointment = AsyncMock(return_value={"ok": True})
         confirmation_module.cancel_appointment = AsyncMock(return_value={"ok": True})
+        confirmation_module._find_next_queued_confirmation = AsyncMock(return_value=None)
+        confirmation_module._activate_next_confirmation = AsyncMock()
 
     async def test_nao_cancels_appointment_and_completes_helena(self) -> None:
         confirmation_module._classify_confirmation_response = AsyncMock(
@@ -163,6 +165,32 @@ class ConfirmationAgentTest(unittest.IsolatedAsyncioTestCase):
             reactivate_on_new_message=False,
             stop_bot_in_execution=True,
         )
+
+    async def test_sim_activates_next_queued_confirmation_without_completing_session(self) -> None:
+        confirmation_module._classify_confirmation_response = AsyncMock(
+            return_value={"intent": "sim", "reply": "Consulta confirmada."}
+        )
+        confirmation_module._find_next_queued_confirmation = AsyncMock(return_value={
+            "id": "confirmation-2",
+            "appointment_id": "appointment-2",
+            "patient_name": "João",
+            "patient_phone": "5511999999999",
+            "appointment_date": "2026-05-04",
+            "appointment_time": "09:15:00",
+            "professional_name": "Dr. Ricardo",
+        })
+
+        result = await confirmation_module.handle_confirmation(make_message("SIM"))
+
+        self.assertEqual(result["intent"], "sim")
+        self.assertEqual(result["status"], "confirmed")
+        self.assertIn("Também encontrei outra consulta vinculada a este número", result["reply"])
+        self.assertIn("João", result["reply"])
+        confirmation_module._activate_next_confirmation.assert_awaited_once_with(
+            confirmation_module._find_next_queued_confirmation.return_value,
+            "helena-session-1",
+        )
+        confirmation_module.complete_session.assert_not_awaited()
 
 
 if __name__ == "__main__":

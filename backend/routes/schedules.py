@@ -43,6 +43,14 @@ def _chunk_list(items: list, size: int) -> list[list]:
     return [items[idx:idx + size] for idx in range(0, len(items), size)]
 
 
+def _sort_schedule_key(schedule: dict) -> tuple[str, str, str]:
+    return (
+        str(schedule.get("data") or ""),
+        str(schedule.get("horaInicio") or ""),
+        str(schedule.get("id") or ""),
+    )
+
+
 def _build_template_parameters(schedule: dict) -> dict[str, str]:
     return {
         "MEDICO": ((schedule.get("profissionalSaude") or {}).get("nome") or "seu médico").strip(),
@@ -80,6 +88,22 @@ async def _activate_confirmation_chatbot(phone: str, appointment_id: str) -> Non
         )
 
 
+def _group_items_by_phone(items: list[dict]) -> tuple[list[dict], list[dict]]:
+    immediate: list[dict] = []
+    queued: list[dict] = []
+    grouped: dict[str, list[dict]] = {}
+
+    for item in items:
+        grouped.setdefault(item["message"]["to"], []).append(item)
+
+    for phone_items in grouped.values():
+        ordered = sorted(phone_items, key=lambda item: _sort_schedule_key(item["schedule"]))
+        immediate.append(ordered[0])
+        queued.extend(ordered[1:])
+
+    return immediate, queued
+
+
 async def _dispatch_confirmations(schedules: list, delay_seconds: int):
     """Processa a fila de envios em lotes de template com atraso configurado entre lotes."""
     total = len(schedules)
@@ -101,6 +125,7 @@ async def _dispatch_confirmations(schedules: list, delay_seconds: int):
         sent_count = 0
         skipped_count = 0
         failed_count = 0
+        queued_count = 0
         pending_items: list[dict] = []
 
         for idx, sched in enumerate(schedules, start=1):
@@ -134,6 +159,7 @@ async def _dispatch_confirmations(schedules: list, delay_seconds: int):
                 pending_items.append({
                     "appointment_id": str(appointment_id),
                     "confirmation_id": conf_id,
+                    "schedule": sched,
                     "message": {
                         "to": phone,
                         "senderId": str(appointment_id),
@@ -147,7 +173,18 @@ async def _dispatch_confirmations(schedules: list, delay_seconds: int):
                 failed_count += 1
                 logger.error("[DISPATCH] %d/%d erro na preparação | appointment_id=%s | erro=%s", idx, total, appointment_id, e, exc_info=True)
 
-        batches = _chunk_list(pending_items, 100)
+        immediate_items, queued_items = _group_items_by_phone(pending_items)
+
+        for item in queued_items:
+            await db.table("schedule_confirmations").update({"status": "queued"}).eq("id", item["confirmation_id"]).execute()
+            queued_count += 1
+            logger.info(
+                "[DISPATCH] Agrupado por telefone | appointment_id=%s | phone=%s | status=queued",
+                item["appointment_id"],
+                item["message"]["to"],
+            )
+
+        batches = _chunk_list(immediate_items, 100)
         for batch_idx, batch in enumerate(batches, start=1):
             logger.info("[DISPATCH] Enviando lote %d/%d | tamanho=%d", batch_idx, len(batches), len(batch))
             try:
@@ -216,8 +253,8 @@ async def _dispatch_confirmations(schedules: list, delay_seconds: int):
                 await asyncio.sleep(delay_seconds)
 
         logger.info(
-            "[DISPATCH] Finalizado | total=%d | enviados=%d | pulados=%d | falhas=%d",
-            total, sent_count, skipped_count, failed_count,
+            "[DISPATCH] Finalizado | total=%d | enviados=%d | agrupados=%d | pulados=%d | falhas=%d",
+            total, sent_count, queued_count, skipped_count, failed_count,
         )
 
     except Exception as e:

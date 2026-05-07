@@ -1,6 +1,7 @@
 import json
 import logging
 import re
+from datetime import datetime
 from typing import Any
 
 from anthropic import AsyncAnthropic
@@ -214,6 +215,66 @@ def _build_out_of_context_reply(patient_name: str | None) -> str:
     )
 
 
+def _format_appointment_date(date_str: str | None) -> str:
+    if not date_str:
+        return ""
+    try:
+        return datetime.strptime(date_str, "%Y-%m-%d").strftime("%d/%m/%Y")
+    except ValueError:
+        return str(date_str)
+
+
+def _format_appointment_time(time_str: str | None) -> str:
+    time_str = (time_str or "").strip()
+    return time_str[:5] if time_str else ""
+
+
+def _build_followup_prompt(next_confirmation: dict[str, Any]) -> str:
+    patient_name = (next_confirmation.get("patient_name") or "Paciente").strip()
+    date_text = _format_appointment_date(next_confirmation.get("appointment_date"))
+    time_text = _format_appointment_time(next_confirmation.get("appointment_time"))
+    professional_name = (next_confirmation.get("professional_name") or "seu médico").strip()
+
+    return (
+        "Também encontrei outra consulta vinculada a este número:\n"
+        f"Paciente: {patient_name}\n"
+        f"Data: {date_text}\n"
+        f"Horário: {time_text}\n"
+        f"Profissional: {professional_name}\n\n"
+        "Responda SIM para confirmar ou NÃO para cancelar esta consulta."
+    )
+
+
+async def _find_next_queued_confirmation(patient_phone: str, current_confirmation_id: str) -> dict[str, Any] | None:
+    db = await get_supabase()
+    res = await (
+        db.table("schedule_confirmations")
+        .select(
+            "id, session_id, helena_session_id, patient_phone, patient_name, "
+            "status, appointment_id, appointment_date, appointment_time, professional_name"
+        )
+        .eq("patient_phone", patient_phone)
+        .eq("status", "queued")
+        .neq("id", current_confirmation_id)
+        .order("appointment_date")
+        .order("appointment_time")
+        .order("created_at")
+        .limit(1)
+        .execute()
+    )
+    return res.data[0] if res.data else None
+
+
+async def _activate_next_confirmation(
+    next_confirmation: dict[str, Any],
+    session_id: str | None,
+) -> None:
+    fields: dict[str, Any] = {"status": "sent"}
+    if session_id:
+        fields["helena_session_id"] = session_id
+    await _update_confirmation(fields, next_confirmation["id"])
+
+
 async def handle_confirmation(message: IncomingMessage) -> dict[str, Any] | None:
     """
     Processa respostas às mensagens de confirmação disparadas pelo painel.
@@ -267,8 +328,34 @@ async def handle_confirmation(message: IncomingMessage) -> dict[str, Any] | None
         except Exception as e:
             logger.error("Erro ao atualizar status da confirmação %s: %s", active["id"], e)
 
+    next_confirmation = None
     if intent in {"sim", "nao"}:
-        await _complete_helena_confirmation_session(helena_session_id, appointment_id)
+        try:
+            next_confirmation = await _find_next_queued_confirmation(active.get("patient_phone"), active["id"])
+        except Exception as e:
+            logger.error(
+                "[CONFIRMATION] Erro ao buscar próxima confirmação em fila | confirmation_id=%s | erro=%s",
+                active["id"],
+                e,
+                exc_info=True,
+            )
+
+        if next_confirmation:
+            try:
+                await _activate_next_confirmation(next_confirmation, helena_session_id or message.wts_session_id)
+                reply = f"{reply}\n\n{_build_followup_prompt(next_confirmation)}"
+            except Exception as e:
+                logger.error(
+                    "[CONFIRMATION] Erro ao ativar próxima confirmação | confirmation_id=%s | next_confirmation_id=%s | erro=%s",
+                    active["id"],
+                    next_confirmation.get("id"),
+                    e,
+                    exc_info=True,
+                )
+                next_confirmation = None
+
+        if not next_confirmation:
+            await _complete_helena_confirmation_session(helena_session_id, appointment_id)
 
     logger.info(
         "[CONFIRMATION] processada | appointment_id=%s | phone=%s | intent=%s | status=%s | text=%s",
