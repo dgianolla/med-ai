@@ -1,10 +1,31 @@
 import logging
 from fastapi import APIRouter, Request, HTTPException, BackgroundTasks
+from config import get_settings
 from integrations.whatsapp import parse_webhook
 from services.message_buffer import get_message_buffer_service
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+
+async def _reply_to_confirmation_message(incoming, reply: str) -> None:
+    from integrations.whatsapp import get_whatsapp_client
+
+    whatsapp = get_whatsapp_client()
+    if incoming.wts_session_id:
+        await whatsapp.send_text(
+            session_id=incoming.wts_session_id,
+            text=reply,
+            ref_id=incoming.wts_message_id,
+        )
+        return
+
+    settings = get_settings()
+    await whatsapp.send_outbound_text(
+        to_phone=incoming.patient_phone,
+        text=reply,
+        from_channel_id=settings.wts_confirmation_channel_id,
+    )
 
 
 async def _process_message(body: dict):
@@ -51,12 +72,7 @@ async def _process_message(body: dict):
             confirmation_result["status"],
         )
         try:
-            whatsapp = get_whatsapp_client()
-            await whatsapp.send_text(
-                session_id=incoming.wts_session_id,
-                text=confirmation_result["reply"],
-                ref_id=incoming.wts_message_id,
-            )
+            await _reply_to_confirmation_message(incoming, confirmation_result["reply"])
         except Exception as e:
             logger.error("Erro ao enviar resposta de confirmação via wts.chat: %s", e)
         return

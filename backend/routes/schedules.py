@@ -8,7 +8,10 @@ from pydantic import BaseModel
 
 from config import get_settings
 from db.client import get_supabase
-from integrations.helena_client import send_confirmation_template_batch
+from integrations.helena_client import (
+    send_confirmation_template_batch,
+    trigger_confirmation_chatbot,
+)
 from integrations.scheduling_api import get_agenda
 from phone_utils import normalize_brazil_phone
 from time_utils import clinic_now
@@ -57,6 +60,24 @@ def _build_session_metadata(schedule: dict, phone: str) -> dict[str, str]:
         "appointment_time": str(schedule.get("horaInicio") or ""),
         "professional_name": str((schedule.get("profissionalSaude") or {}).get("nome") or ""),
     }
+
+
+async def _activate_confirmation_chatbot(phone: str, appointment_id: str) -> None:
+    try:
+        await trigger_confirmation_chatbot(phone)
+        logger.info(
+            "[DISPATCH] Chatbot de confirmação acionado | appointment_id=%s | phone=%s",
+            appointment_id,
+            phone,
+        )
+    except Exception as e:
+        logger.error(
+            "[DISPATCH] Falha ao acionar chatbot de confirmação | appointment_id=%s | phone=%s | erro=%s",
+            appointment_id,
+            phone,
+            e,
+            exc_info=True,
+        )
 
 
 async def _dispatch_confirmations(schedules: list, delay_seconds: int):
@@ -163,6 +184,10 @@ async def _dispatch_confirmations(schedules: list, delay_seconds: int):
 
                     if local_status == "sent":
                         sent_count += 1
+                        await _activate_confirmation_chatbot(
+                            item["message"]["to"],
+                            appointment_id,
+                        )
                         logger.info(
                             "[DISPATCH] Lote %d/%d enviado | appointment_id=%s | msg_id=%s | session_id=%s | remote_status=%s",
                             batch_idx,

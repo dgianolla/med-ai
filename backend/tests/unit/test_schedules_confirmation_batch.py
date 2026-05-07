@@ -1,8 +1,9 @@
 import importlib.util
 import sys
 import unittest
+from unittest.mock import AsyncMock
 from pathlib import Path
-from types import ModuleType
+from types import ModuleType, SimpleNamespace
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(BACKEND_DIR))
@@ -70,6 +71,8 @@ def _unused_send_confirmation_template_batch(*_args, **_kwargs):
 
 
 helena_client_stub.send_confirmation_template_batch = _unused_send_confirmation_template_batch
+helena_client_stub.trigger_confirmation_chatbot = AsyncMock()
+helena_client_stub.complete_session = AsyncMock()
 sys.modules["integrations.helena_client"] = helena_client_stub
 
 scheduling_api_stub = ModuleType("integrations.scheduling_api")
@@ -78,6 +81,8 @@ def _unused_get_agenda(*_args, **_kwargs):
 
 
 scheduling_api_stub.get_agenda = _unused_get_agenda
+scheduling_api_stub.cancel_appointment = AsyncMock()
+scheduling_api_stub.confirm_appointment = AsyncMock()
 sys.modules["integrations.scheduling_api"] = scheduling_api_stub
 
 time_utils_stub = ModuleType("time_utils")
@@ -137,6 +142,89 @@ class SchedulesConfirmationBatchTest(unittest.TestCase):
         self.assertEqual(metadata["appointment_id"], "123")
         self.assertEqual(metadata["patient_phone"], "5515999999999")
         self.assertEqual(metadata["professional_name"], "Dra. Silmara")
+
+
+class _FakeQuery:
+    def __init__(self, response):
+        self._response = response
+
+    def eq(self, *_args, **_kwargs):
+        return self
+
+    def order(self, *_args, **_kwargs):
+        return self
+
+    def limit(self, *_args, **_kwargs):
+        return self
+
+    async def execute(self):
+        return self._response
+
+
+class _FakeTable:
+    def __init__(self):
+        self.rows = []
+        self.last_update = None
+
+    def select(self, *_args, **_kwargs):
+        return _FakeQuery(type("Resp", (), {"data": []})())
+
+    def upsert(self, row, on_conflict=None):
+        stored = dict(row)
+        stored["id"] = "confirmation-1"
+        self.rows.append(stored)
+        return _FakeQuery(type("Resp", (), {"data": [stored]})())
+
+    def update(self, fields):
+        self.last_update = fields
+        return _FakeQuery(type("Resp", (), {"data": [fields]})())
+
+
+class _FakeDb:
+    def __init__(self):
+        self.schedule_confirmations = _FakeTable()
+
+    def table(self, name):
+        if name != "schedule_confirmations":
+            raise AssertionError(f"Tabela inesperada: {name}")
+        return self.schedule_confirmations
+
+
+class DispatchConfirmationsTest(unittest.IsolatedAsyncioTestCase):
+    async def test_dispatch_triggers_chatbot_after_successful_send(self) -> None:
+        fake_db = _FakeDb()
+        schedules_module.get_supabase = AsyncMock(return_value=fake_db)
+        schedules_module.get_settings = lambda: SimpleNamespace(
+            wts_confirmation_channel_id="channel-1",
+            wts_confirmation_template_id="template-1",
+            wts_confirmation_callback_url="",
+        )
+        schedules_module.send_confirmation_template_batch = AsyncMock(return_value=[
+            {
+                "senderId": "123",
+                "status": "SENT",
+                "id": "message-1",
+                "sessionId": "helena-session-1",
+            }
+        ])
+        schedules_module.trigger_confirmation_chatbot = AsyncMock()
+
+        schedule = {
+            "id": 123,
+            "nome": "Maria",
+            "telefonePrincipal": "5515999999999",
+            "data": "2026-05-03",
+            "horaInicio": "08:30:00",
+            "profissionalSaude": {"nome": "Dra. Silmara"},
+        }
+
+        await schedules_module._dispatch_confirmations([schedule], delay_seconds=0)
+
+        schedules_module.trigger_confirmation_chatbot.assert_awaited_once_with("5515999999999")
+        self.assertEqual(
+            fake_db.schedule_confirmations.last_update["status"],
+            "sent",
+        )
 
 
 if __name__ == "__main__":
